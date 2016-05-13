@@ -137,6 +137,35 @@ int image_write(image *im, FILE *file) {
   free(buf);
 }
 
+image *image_rotate(image *im, int angle) {
+  int w = im->width, h = im->height;
+  int x, y, dx, dy;
+  image *om = image_make(w, h);
+  short *i, *o;
+  i = im->data; o = om->data;
+  switch (angle) {
+    case 90:
+      o += h - 1; dx = h; dy = -1;
+      break;
+    case 180:
+      om->width = w; om->height = h;
+      o += h * w - 1; dx = -1; dy = -w;
+      break;
+    case 270:
+    case -90:
+      o += h * w - h; dx = -h; dy = 1;
+      break;
+    default: error("rotate: only +/-90, 180, 270");
+  }
+  for (y = 0; y < h; y++) {
+    for (x = 0; x < w; x++) {
+      *o = *i; i++; o += dx;
+    }
+    o += dy - w * dx;
+  }
+  return om;
+}
+
 //// STACK ////
 #define STACK_SIZE 256
 image *stack[STACK_SIZE];
@@ -172,6 +201,12 @@ int main(int argc, char **arg) {
   while (*(++arg)) {
     if (ARG_IS("-")) {
       push(image_read(stdin));
+    }
+    else
+    if (ARG_IS("rot")) {
+      if (! *(++arg)) break;
+      push(image_rotate(SP_1, atoi(*arg)));
+      swap(); pop();
     }
     else {
       push(image_read(fopen(*arg, "rb")));
