@@ -14,9 +14,12 @@ typedef struct {
   uint width;
 } image;
 
-//// ... ////
+//// ERRORS ////
 
-void error(char *msg) {
+const char *UNDERFLOW = "Stack underflow";
+const char *OVERFLOW = "Stack overflow";
+
+void error(const char *msg) {
   fprintf(stderr, "ERROR: ");
   fprintf(stderr, msg);
   fprintf(stderr, "\n");
@@ -43,7 +46,7 @@ void init_srgb() {
       l = (l + 0.055) / 1.055;
       l = pow(l, 2.4);
     }
-    l = roundf(l * MAXVAL)
+    l = roundf(l * MAXVAL);
     lin_from_srgb[s] = l;
     if (s == 0) { l0 = 0; continue; }
     for (i = l0; i <= (l0 + l) / 2; i++) {
@@ -59,10 +62,10 @@ void init_srgb() {
 //// IMAGES ////
 
 image *image_make(int height, int width) {
-  image *im;
-  short *data;
-  if (height < 1 || width < 1) return NULL;
-  data = malloc(width * height * sizeof(short));
+image *im;
+short *data;
+if (height < 1 || width < 1) return NULL;
+data = malloc(width * height * sizeof(short));
   if (! data) return NULL;
   im = malloc(sizeof(image));
   if (! im) return NULL;
@@ -134,8 +137,32 @@ int image_write(image *im, FILE *file) {
   free(buf);
 }
 
+//// STACK ////
+#define STACK_SIZE 256
+image *stack[STACK_SIZE];
+#define SP stack[sp]
+#define SP_1 stack[sp - 1]
+#define SP_2 stack[sp - 2]
+
+int sp = 0;
+void *swap() {
+  image *im;
+  if (sp < 2) error(UNDERFLOW);
+  im = SP_2; SP_2 = SP_1; SP_1 = im;
+}
+image *pop() {
+  if (sp < 1) error(UNDERFLOW);
+  sp--;
+  return SP;
+}
+void push(image *im) {
+  if (sp >= STACK_SIZE) error(OVERFLOW);
+  if (SP) free(SP);
+  SP = im;
+  sp++;
+}
+
 //// MAIN ////
-image *IM;
 #define ARG_IS(x) EQ((x), *arg)
 int main(int argc, char **arg) {
   int i, c, d;
@@ -144,13 +171,13 @@ int main(int argc, char **arg) {
   image * im;
   while (*(++arg)) {
     if (ARG_IS("-")) {
-      IM = image_read(stdin);
+      push(image_read(stdin));
     }
     else {
-      IM = image_read(fopen(*arg, "rb"));
+      push(image_read(fopen(*arg, "rb")));
     }
   }
-  if (IM) image_write(IM, stdout);
+  if (sp > 0) image_write(pop(), stdout);
   exit(0);
 }
 /**/
