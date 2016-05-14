@@ -165,6 +165,59 @@ image *image_rotate(image *im, int angle) {
   }
   return om;
 }
+// find light background
+// d: precision
+//    1 -> max dimension
+//    try d = 0.1
+image *image_background(image *im, float d) {
+  if (d < 0) error("Arg must be >= 0.");
+  if (d == 0) return;
+  d *= im->height > im->width ? im->height : im->width;
+  d = exp(-1 / d);
+  int x, y, h = im->height, w = im->width;
+  image *om = image_make(h, w);
+  float t, *v0, *v1;
+  v0 = malloc(w * sizeof(*v0));
+  v1 = malloc(w * sizeof(*v1));
+  short *pi = im->data;
+  short *po = om->data;
+  for (y = 0; y < h; y++) {
+    for (x = 0; x < w; x++) v1[x] = *(pi++);
+    for (x = 1; x < w; x++) {
+      t = v1[x - 1] * d;
+      if (v1[x] < t) v1[x] = t;
+    }
+    for (x = w - 2; x >= 0; x--) {
+      t = v1[x + 1] * d;
+      if (v1[x] < t) v1[x] = t;
+    }
+    if (y > 0) for (x = 0; x < w; x++) {
+      t = v0[x] * d;
+      if (v1[x] < t) v1[x] = t;
+    }
+    for (x = 0; x < w; x++) {
+      *(po++) = round(v1[x]);
+    }
+    memcpy(v0, v1, w * sizeof(*v0));
+  }
+  assert(pi == im->data + w * h);
+  assert(po == om->data + w * h);
+  for (y = 1; y < h; y++) {
+    po -= w;
+    for (x = w - 1; x >= 0; x--) v1[x] = *(--po);
+    for (x = 0; x < w; x++) {
+      t = v0[x] * d;
+      if (v1[x] < t) v1[x] = t;
+    }
+    for (x = 0; x < w; x++) {
+      *(po++) = round(v1[x]);
+    }
+    memcpy(v0, v1, w * sizeof(*v0));
+  }
+  assert(po == om->data + w);
+  free(v0); free(v1);
+  return om;
+}
 
 //// STACK ////
 #define STACK_SIZE 256
@@ -201,6 +254,11 @@ int main(int argc, char **arg) {
   while (*(++arg)) {
     if (ARG_IS("-")) {
       push(image_read(stdin));
+    }
+    else
+    if (ARG_IS("bg")) {
+      if (! *(++arg)) break;
+      push(image_background(SP_1, atof(*arg)));
     }
     else
     if (ARG_IS("rot")) {
