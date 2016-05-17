@@ -219,6 +219,19 @@ image *image_background(image *im, float d) {
   return om;
 }
 
+void *image_div(image *a, image *b) {
+  int h = a->height;
+  int w = a->width;
+  int i;
+  short *pa, *pb;
+  if (b->height != h || b->width != w) error("Dimensions mismatch.");
+  pa = a->data; pb = b->data;
+  for (i = 0; i < w * h; i++) {
+    *pa = (float)*pa / *pb * MAXVAL;
+    pa++; pb++;
+  }
+}
+
 //// STACK ////
 #define STACK_SIZE 256
 image *stack[STACK_SIZE];
@@ -259,6 +272,11 @@ int main(int argc, char **arg) {
     if (ARG_IS("bg")) {
       if (! *(++arg)) break;
       push(image_background(SP_1, atof(*arg)));
+    }
+    else
+    if (ARG_IS("div")) {
+      image_div(SP_2, SP_1);
+      pop();
     }
     else
     if (ARG_IS("rot")) {
