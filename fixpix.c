@@ -107,11 +107,25 @@ image *image_read(FILE *file) {
     if (width > fread(buf, 1, width, file))  error("Unexpected EOF");
     ps = buf;
     for (x = 0; x < width; x++) {
-      *(pt++) = lin_from_srgb[*(ps++)];
+      *(pt++) = *(ps++);
     }
   }
   free(buf);
   return im;
+}
+
+void *image_from_srgb(image *im) {
+  short *p, *end;
+  short i;
+  end = im->data + (im->height * im->width);
+  for (p = im->data; p < end; p++) {
+    i = *p;
+    if (i > 255) *p = MAXVAL;
+    else
+    if (i < 0) *p = 0;
+    else
+    *p = lin_from_srgb[*p];
+  }
 }
 
 int image_write(image *im, FILE *file) {
@@ -267,6 +281,7 @@ int main(int argc, char **arg) {
   while (*(++arg)) {
     if (ARG_IS("-")) {
       push(image_read(stdin));
+      image_from_srgb(SP_1);
     }
     else
     if (ARG_IS("bg")) {
@@ -286,6 +301,7 @@ int main(int argc, char **arg) {
     }
     else {
       push(image_read(fopen(*arg, "rb")));
+      image_from_srgb(SP_1);
     }
   }
   if (sp > 0) image_write(pop(), stdout);
