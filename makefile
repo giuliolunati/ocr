@@ -1,5 +1,5 @@
 fixpix: fixpix.c
-	gcc -o $@ $< -lm
+	gcc -O3 -o $@ $< -lm -pie
 
 .PHONY: clean
 clean:
