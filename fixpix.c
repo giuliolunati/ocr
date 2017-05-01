@@ -3,6 +3,7 @@
 #include <malloc.h>
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #define EQ(a, b) 0 == strcmp((a), (b))
 #define uchar unsigned char
@@ -16,12 +17,9 @@ typedef struct {
 
 //// ERRORS ////
 
-const char *UNDERFLOW = "Stack underflow";
-const char *OVERFLOW = "Stack overflow";
-
 void error(const char *msg) {
   fprintf(stderr, "ERROR: ");
-  fprintf(stderr, msg);
+  fprintf(stderr, "%s", msg);
   fprintf(stderr, "\n");
   exit(1);
 }
@@ -81,33 +79,34 @@ void image_destroy(image *im) {
   free(im);
 }
 
-image *image_read(FILE *file) {
+image *image_read(FILE *file, int layer) {
   int x, y, type, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
   short *pt;
   if (! file) error("File not found.");
   if (4 > fscanf(file, "P%d %d %d %d\n", &depth, &width, &height, &type)) {
-    error("Not PNM file.");
+    error("Not a PNM file.");
   }
   switch (depth) {
-    case 5: break;
-    default: return NULL;
+    case 5: depth = 1; break;
+    case 6: depth = 3; break;
+    default: error("Invalid depth.");
   }
   switch (type) {
     case 255: break;
-    default: return NULL;
+    default: error("Invalid bits.");
   }
-  if (width < 1 || height < 1) return NULL;
+  if (width < 1 || height < 1) error("Invalid dimensions.");
   im = image_make(height, width);
-  if (!im) return NULL;
-  buf = malloc(width);
+  if (!im) error("Cannot make image.");;
+  buf = malloc(width * depth);
   pt = im->data;
   for (y = 0; y < height; y++) {
-    if (width > fread(buf, 1, width, file))  error("Unexpected EOF");
-    ps = buf;
+    if (width > fread(buf, depth, width, file))  error("Unexpected EOF");
+    ps = buf + layer;
     for (x = 0; x < width; x++) {
-      *(pt++) = *(ps++);
+      *(pt++) = *(ps += depth);
     }
   }
   free(buf);
@@ -256,16 +255,16 @@ image *stack[STACK_SIZE];
 int sp = 0;
 void *swap() {
   image *im;
-  if (sp < 2) error(UNDERFLOW);
+  if (sp < 2) error("Stack underflow");
   im = SP_2; SP_2 = SP_1; SP_1 = im;
 }
 image *pop() {
-  if (sp < 1) error(UNDERFLOW);
+  if (sp < 1) error("Stack underflow");
   sp--;
   return SP;
 }
 void push(image *im) {
-  if (sp >= STACK_SIZE) error(OVERFLOW);
+  if (sp >= STACK_SIZE) error("Stack overflow");
   if (SP) free(SP);
   SP = im;
   sp++;
@@ -280,7 +279,7 @@ int main(int argc, char **arg) {
   image * im;
   while (*(++arg)) {
     if (ARG_IS("-")) {
-      push(image_read(stdin));
+      push(image_read(stdin, 0));
       image_from_srgb(SP_1);
     }
     else
@@ -300,7 +299,7 @@ int main(int argc, char **arg) {
       swap(); pop();
     }
     else {
-      push(image_read(fopen(*arg, "rb")));
+      push(image_read(fopen(*arg, "rb"), 0));
       image_from_srgb(SP_1);
     }
   }
