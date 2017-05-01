@@ -180,7 +180,7 @@ image *image_rotate(image *im, int angle) {
 }
 // find light background
 // d: precision
-//    1 -> max dimension
+//    1 -> max(width, height)
 //    try d = 0.1
 image *image_background(image *im, float d) {
   if (d < 0) error("Arg must be >= 0.");
@@ -277,28 +277,28 @@ int main(int argc, char **arg) {
   init_srgb();
 
   image * im;
-  while (*(++arg)) {
+  while (*(++arg)) { // -
     if (ARG_IS("-")) {
       push(image_read(stdin, 0));
       image_from_srgb(SP_1);
     }
-    else
+    else // bg FLOAT
     if (ARG_IS("bg")) {
       if (! *(++arg)) break;
       push(image_background(SP_1, atof(*arg)));
     }
-    else
+    else // div
     if (ARG_IS("div")) {
       image_div(SP_2, SP_1);
       pop();
     }
-    else
+    else // rot +-90, 180, 270
     if (ARG_IS("rot")) {
       if (! *(++arg)) break;
       push(image_rotate(SP_1, atoi(*arg)));
       swap(); pop();
     }
-    else {
+    else { // STRING
       push(image_read(fopen(*arg, "rb"), 0));
       image_from_srgb(SP_1);
     }
