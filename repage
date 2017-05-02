@@ -1,0 +1,40 @@
+#!/bin/sh
+help_me() {
+echo "
+USAGE: $0 FIRST LAST PAGES...
+  FIRST, LAST: page numbers 0-padded
+  PAGES: jpeg files in forth-and-back order
+         e.g. 3 5 7 9 11 10 8 6 4
+E.G:
+  $0 03 11 ....
+  => pag-03.jpg ... pag-11.jpg ... pag-04.jpg
+"
+exit 1
+}
+
+a=$1; shift
+z=$1; shift
+[ $z ] || help_me
+echo $@ | gawk -v a=$a -v z=$z '
+BEGIN {
+  w = length(a)
+  if (w < length(z)) w = length(z)
+  a = a + 0
+  z = z + 0
+}
+{
+  if (z - a != NF - 1) {
+    print "Wrong page number!"; exit(1)
+  }
+  if (NF % 2) z -- 
+  
+  for (i = 1; i <= NF; i ++) {
+    if (i * 2 <= NF + 1) {n = a; a += 2}
+    else {n = z; z -= 2}
+    if (n % 2) r = 90; else r = 270
+    printf("echo %d; jpegtran -rotate %d %s > pag-%0" w "d.jpg\n", n, r, $i, n)
+  }
+}
+'|sh
+
+# vim: set noexpandtab sw=2 ts=2:
