@@ -8,11 +8,15 @@
 #define EQ(a, b) 0 == strcmp((a), (b))
 #define uchar unsigned char
 #define uint unsigned int
+#define MAXVAL 6552 
+
+float default_lpp = 40;
 
 typedef struct {
   short *data;
   uint height;
   uint width;
+  float lpp; // lines-per-page: height / line-height
 } image;
 
 //// ERRORS ////
@@ -28,8 +32,6 @@ void error(const char *msg) {
 // 0 <= srgb <= 1  0 <= lin <= 1
 // srgb < 0.04045: lin = srgb / 12.92
 // srgb > 0.04045: lin = [(srgb + 0.055) / 1.055]^2.4
-
-#define MAXVAL 6552 
 
 short lin_from_srgb[256];
 uchar srgb_from_lin[MAXVAL + 1];
@@ -60,16 +62,17 @@ void init_srgb() {
 //// IMAGES ////
 
 image *image_make(int height, int width) {
-image *im;
-short *data;
-if (height < 1 || width < 1) return NULL;
-data = malloc(width * height * sizeof(short));
+  image *im;
+  short *data;
+  if (height < 1 || width < 1) return NULL;
+  data = malloc(width * height * sizeof(short));
   if (! data) return NULL;
   im = malloc(sizeof(image));
   if (! im) return NULL;
   im->height = height;
   im->width = width;
   im->data = data;
+  im->lpp = 0;
   return im;
 }
 
@@ -154,6 +157,7 @@ image *image_rotate(image *im, int angle) {
   int w = im->width, h = im->height;
   int x, y, dx, dy;
   image *om = image_make(w, h);
+  om->lpp = im->lpp;
   short *i, *o;
   i = im->data; o = om->data;
   switch (angle) {
@@ -179,16 +183,14 @@ image *image_rotate(image *im, int angle) {
   return om;
 }
 // find light background
-// d: precision
-//    1 -> max(width, height)
-//    try d = 0.1
-image *image_background(image *im, float d) {
-  if (d < 0) error("Arg must be >= 0.");
-  if (d == 0) return;
-  d *= im->height > im->width ? im->height : im->width;
-  d = exp(-1 / d);
+image *image_background(image *im) {
+  float d = im->lpp;
+  if (d <= 0) d = default_lpp;
+  d /= im->height;
+  d = exp(-d);
   int x, y, h = im->height, w = im->width;
   image *om = image_make(h, w);
+  om->lpp = im->lpp;
   float t, *v0, *v1;
   v0 = malloc(w * sizeof(*v0));
   v1 = malloc(w * sizeof(*v1));
@@ -284,13 +286,18 @@ int main(int argc, char **arg) {
     }
     else // bg FLOAT
     if (ARG_IS("bg")) {
-      if (! *(++arg)) break;
-      push(image_background(SP_1, atof(*arg)));
+      push(image_background(SP_1));
     }
     else // div
     if (ARG_IS("div")) {
       image_div(SP_2, SP_1);
       pop();
+    }
+    else // lpp
+    if (ARG_IS("lpp")) {
+      if (! *(++arg)) break;
+      default_lpp = atof(*arg);
+      if (sp) SP_1->lpp = default_lpp;
     }
     else // rot +-90, 180, 270
     if (ARG_IS("rot")) {
