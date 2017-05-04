@@ -293,6 +293,12 @@ int main(int argc, char **arg) {
       image_div(SP_2, SP_1);
       pop();
     }
+    else // fix-bg
+    if (ARG_IS("fix-bg")) {
+      push(image_background(SP_1));
+      image_div(SP_2, SP_1);
+      pop();
+    }
     else // lpp
     if (ARG_IS("lpp")) {
       if (! *(++arg)) break;
