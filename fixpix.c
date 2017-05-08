@@ -8,16 +8,9 @@
 #define EQ(a, b) 0 == strcmp((a), (b))
 #define uchar unsigned char
 #define uint unsigned int
+#define ulong unsigned long int
 #define MAXVAL 6552 
-
-float default_lpp = 40;
-
-typedef struct {
-  short *data;
-  uint height;
-  uint width;
-  float lpp; // lines-per-page: height / line-height
-} image;
+#define MAXSHORT 32767
 
 //// ERRORS ////
 
@@ -29,9 +22,9 @@ void error(const char *msg) {
 }
 
 //// SRGB ////
-// 0 <= srgb <= 1  0 <= lin <= 1
-// srgb < 0.04045: lin = srgb / 12.92
-// srgb > 0.04045: lin = [(srgb + 0.055) / 1.055]^2.4
+  // 0 <= srgb <= 1  0 <= lin <= 1
+  // srgb < 0.04045: lin = srgb / 12.92
+  // srgb > 0.04045: lin = [(srgb + 0.055) / 1.055]^2.4
 
 short lin_from_srgb[256];
 uchar srgb_from_lin[MAXVAL + 1];
@@ -61,7 +54,16 @@ void init_srgb() {
 
 //// IMAGES ////
 
-image *image_make(int height, int width) {
+typedef struct { // image
+  short *data;
+  uint width;
+  uint height;
+  float lpp; // lines-per-page: height / line-height
+} image;
+
+float default_lpp = 40;
+
+image *make_image(int height, int width) {
   image *im;
   short *data;
   if (height < 1 || width < 1) return NULL;
@@ -76,13 +78,13 @@ image *image_make(int height, int width) {
   return im;
 }
 
-void image_destroy(image *im) {
+void destroy_image(image *im) {
   if (! im) return;
   if (im->data) free(im->data);
   free(im);
 }
 
-image *image_read(FILE *file, int layer) {
+image *read_image(FILE *file, int layer) {
   int x, y, type, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
@@ -101,7 +103,7 @@ image *image_read(FILE *file, int layer) {
     default: error("Invalid bits.");
   }
   if (width < 1 || height < 1) error("Invalid dimensions.");
-  im = image_make(height, width);
+  im = make_image(width, height);
   if (!im) error("Cannot make image.");;
   buf = malloc(width * depth);
   pt = im->data;
@@ -130,14 +132,16 @@ void *image_from_srgb(image *im) {
   }
 }
 
-int image_write(image *im, FILE *file) {
+int write_image(image *im, FILE *file) {
   int x, y;
   uchar *buf, *pt;
   short i, *ps;
   assert(file);
   fprintf(file, "P5\n%d %d\n255\n", im->width, im->height);
-  buf = malloc(im->width);
+  buf = malloc(im->width * sizeof(*buf));
+  assert(buf);
   ps = im->data;
+  assert(ps);
   for (y = 0; y < im->height; y++) {
     pt = buf;
     for (x = 0; x < im->width; x++) {
@@ -153,10 +157,10 @@ int image_write(image *im, FILE *file) {
   free(buf);
 }
 
-image *image_rotate(image *im, int angle) {
+image *rotate_image(image *im, int angle) {
   int w = im->width, h = im->height;
   int x, y, dx, dy;
-  image *om = image_make(w, h);
+  image *om = make_image(h, w);
   om->lpp = im->lpp;
   short *i, *o;
   i = im->data; o = om->data;
@@ -182,14 +186,15 @@ image *image_rotate(image *im, int angle) {
   }
   return om;
 }
-// find light background
+
 image *image_background(image *im) {
+  // find light background
   float d = im->lpp;
   if (d <= 0) d = default_lpp;
   d /= im->height;
   d = exp(-d);
   int x, y, h = im->height, w = im->width;
-  image *om = image_make(h, w);
+  image *om = make_image(w, h);
   om->lpp = im->lpp;
   float t, *v0, *v1;
   v0 = malloc(w * sizeof(*v0));
@@ -234,7 +239,7 @@ image *image_background(image *im) {
   return om;
 }
 
-void *image_div(image *a, image *b) {
+void *divide_image(image *a, image *b) {
   int h = a->height;
   int w = a->width;
   int i;
@@ -281,7 +286,7 @@ int main(int argc, char **arg) {
   image * im;
   while (*(++arg)) { // -
     if (ARG_IS("-")) {
-      push(image_read(stdin, 0));
+      push(read_image(stdin, 0));
       image_from_srgb(SP_1);
     }
     else // bg FLOAT
@@ -290,34 +295,35 @@ int main(int argc, char **arg) {
     }
     else // div
     if (ARG_IS("div")) {
-      image_div(SP_2, SP_1);
+      divide_image(SP_2, SP_1);
       pop();
     }
     else // fix-bg
     if (ARG_IS("fix-bg")) {
       push(image_background(SP_1));
-      image_div(SP_2, SP_1);
+      divide_image(SP_2, SP_1);
       pop();
     }
-    else // lpp
+    else // lpp float
     if (ARG_IS("lpp")) {
       if (! *(++arg)) break;
       default_lpp = atof(*arg);
       if (sp) SP_1->lpp = default_lpp;
     }
+    else // quit
+    if (ARG_IS("quit")) exit(0);
     else // rot +-90, 180, 270
     if (ARG_IS("rot")) {
       if (! *(++arg)) break;
-      push(image_rotate(SP_1, atoi(*arg)));
+      push(rotate_image(SP_1, atoi(*arg)));
       swap(); pop();
     }
     else { // STRING
-      push(image_read(fopen(*arg, "rb"), 0));
+      push(read_image(fopen(*arg, "rb"), 0));
       image_from_srgb(SP_1);
     }
   }
-  if (sp > 0) image_write(pop(), stdout);
-  exit(0);
+  if (sp > 0) write_image(pop(), stdout);
 }
-/**/
-// vim: sw=2 ts=2 sts=2:
+
+// vim: sw=2 ts=2 sts=2 expandtab:
