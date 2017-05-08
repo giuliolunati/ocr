@@ -5,12 +5,13 @@
 #include <math.h>
 #include <string.h>
 
-#define EQ(a, b) 0 == strcmp((a), (b))
 #define uchar unsigned char
 #define uint unsigned int
 #define ulong unsigned long int
+#define real float
 #define MAXVAL 6552 
 #define MAXSHORT 32767
+#define EQ(a, b) 0 == strcmp((a), (b))
 
 //// ERRORS ////
 
@@ -31,7 +32,7 @@ uchar srgb_from_lin[MAXVAL + 1];
 
 void init_srgb() {
   int i, l0, s;
-  float l;
+  real l;
   for (s = 0; s <= 255; s++) {
     l = (s + 0.5) / 255.5;
     if (l < 0.04045) l /= 12.92;
@@ -52,22 +53,79 @@ void init_srgb() {
   }
 }
 
+//// HISTOGRAMS ////
+
+typedef struct { // histogram
+  real *data;
+  uint len;
+  uint size;
+  real x0;
+  real dx;
+} histogram;
+
+histogram *make_histogram(uint size) {
+  histogram *hi;;
+  if (! (hi = malloc(sizeof(histogram))))
+    error("Can't alloc histogram.");
+  hi->size = size;
+  if ( ! (
+    hi->data = malloc(size * sizeof(hi->data))
+  )) error("Can't alloc histogram data.");
+  hi->len = 0;
+  hi->x0 = 0.0;
+  hi->dx = 1.0;
+  return hi;
+}
+
+void destroy_histogram(histogram *h) {
+  if (! h) return;
+  if (h->data) free(h->data);
+  free(h);
+}
+
+void cumul_histogram(histogram *hi) {
+  uint i;
+  real *p = hi->data;
+  for (i = 1; i < hi->len; i ++) {
+    p[i] += p[i - 1];
+  }
+}
+
+void diff_histogram(histogram *hi) {
+  uint i;
+  real *p = hi->data;
+  for (i = hi->len - 1; i > 0; i --) {
+    p[i] -= p[i - 1];
+  }
+}
+
+void dump_histogram(FILE *f, histogram *hi) {
+  uint i;
+  real *p = hi->data;
+  fprintf(f, "# x0: %f dx: %f len: %d\n",
+      hi->x0, hi->dx, hi->len
+  );
+  for (i = 0; i < hi->len; i ++) {
+    fprintf(f, "%f\n", p[i]);
+  }
+}
+
 //// IMAGES ////
 
 typedef struct { // image
   short *data;
   uint width;
   uint height;
-  float lpp; // lines-per-page: height / line-height
+  real lpp; // lines-per-page: height / line-height
 } image;
 
-float default_lpp = 40;
+real default_lpp = 40;
 
-image *make_image(int height, int width) {
+image *make_image(int width, int height) {
   image *im;
   short *data;
   if (height < 1 || width < 1) return NULL;
-  data = malloc(width * height * sizeof(short));
+  data = calloc(width * height, sizeof(short));
   if (! data) return NULL;
   im = malloc(sizeof(image));
   if (! im) return NULL;
@@ -189,14 +247,14 @@ image *rotate_image(image *im, int angle) {
 
 image *image_background(image *im) {
   // find light background
-  float d = im->lpp;
+  real d = im->lpp;
   if (d <= 0) d = default_lpp;
   d /= im->height;
   d = exp(-d);
   int x, y, h = im->height, w = im->width;
   image *om = make_image(w, h);
   om->lpp = im->lpp;
-  float t, *v0, *v1;
+  real t, *v0, *v1;
   v0 = malloc(w * sizeof(*v0));
   v1 = malloc(w * sizeof(*v1));
   short *pi = im->data;
@@ -247,9 +305,27 @@ void *divide_image(image *a, image *b) {
   if (b->height != h || b->width != w) error("Dimensions mismatch.");
   pa = a->data; pb = b->data;
   for (i = 0; i < w * h; i++) {
-    *pa = (float)*pa / *pb * MAXVAL;
+    *pa = (real)*pa / *pb * MAXVAL;
     pa++; pb++;
   }
+}
+
+histogram *histogram_of_image(image *im, int a, int z) {
+  histogram *hi = make_histogram(z - a + 1);
+  hi->x0 = a;
+  hi->len = hi->size;
+  short *p = im->data;
+  real *d = hi->data;
+  int x, y, h = im->height, w = im->width;
+  for (y = 0; y < h; y++) {
+    for (x = 0; x < w; x++) {
+      if (*p > z) d[z - a] += 1;
+      else if (*p < a) d[0] += 1;
+      else d[*p - a] += 1;
+      p ++;
+    }
+  }
+  return hi;
 }
 
 //// STACK ////
@@ -303,6 +379,12 @@ int main(int argc, char **arg) {
       push(image_background(SP_1));
       divide_image(SP_2, SP_1);
       pop();
+    }
+    else // histo
+    if (ARG_IS("histo")) {
+      histogram *hi = histogram_of_image(SP_1, 0, MAXVAL);
+      cumul_histogram(hi);
+      dump_histogram(stdout, hi);
     }
     else // lpp float
     if (ARG_IS("lpp")) {
