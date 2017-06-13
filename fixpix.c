@@ -11,7 +11,9 @@
 #define real float
 #define MAXVAL 6552 
 #define MAXSHORT 32767
-#define EQ(a, b) 0 == strcmp((a), (b))
+#define EQ(a, b) (0 == strcmp((a), (b)))
+#define IS_IMAGE(p) (((char *)p)->type == 'I')
+#define IS_HISTOGRAM(p) (((char *)p)->type == 'H')
 
 //// ERRORS ////
 
@@ -61,6 +63,7 @@ typedef struct { // histogram
   uint size;
   real x0;
   real dx;
+  char type;
 } histogram;
 
 histogram *make_histogram(uint size) {
@@ -74,6 +77,7 @@ histogram *make_histogram(uint size) {
   hi->len = 0;
   hi->x0 = 0.0;
   hi->dx = 1.0;
+  hi->type = 'H';
   return hi;
 }
 
@@ -117,6 +121,7 @@ typedef struct { // image
   uint width;
   uint height;
   real lpp; // lines-per-page: height / line-height
+  char type;
 } image;
 
 real default_lpp = 40;
@@ -133,6 +138,7 @@ image *make_image(int width, int height) {
   im->width = width;
   im->data = data;
   im->lpp = 0;
+  im->type = 'I';
   return im;
 }
 
@@ -330,26 +336,26 @@ histogram *histogram_of_image(image *im, int a, int z) {
 
 //// STACK ////
 #define STACK_SIZE 256
-image *stack[STACK_SIZE];
+void *stack[STACK_SIZE];
 #define SP stack[sp]
 #define SP_1 stack[sp - 1]
 #define SP_2 stack[sp - 2]
 
 int sp = 0;
 void *swap() {
-  image *im;
+  void *p;
   if (sp < 2) error("Stack underflow");
-  im = SP_2; SP_2 = SP_1; SP_1 = im;
+  p = SP_2; SP_2 = SP_1; SP_1 = p;
 }
-image *pop() {
+void *pop() {
   if (sp < 1) error("Stack underflow");
   sp--;
   return SP;
 }
-void push(image *im) {
+void push(void *p) {
   if (sp >= STACK_SIZE) error("Stack overflow");
   if (SP) free(SP);
-  SP = im;
+  SP = p;
   sp++;
 }
 
@@ -363,26 +369,26 @@ int main(int argc, char **arg) {
   while (*(++arg)) { // -
     if (ARG_IS("-")) {
       push(read_image(stdin, 0));
-      image_from_srgb(SP_1);
+      image_from_srgb((image*)SP_1);
     }
     else // bg FLOAT
     if (ARG_IS("bg")) {
-      push(image_background(SP_1));
+      push(image_background((image*)SP_1));
     }
     else // div
     if (ARG_IS("div")) {
-      divide_image(SP_2, SP_1);
+      divide_image((image*)SP_2, (image*)SP_1);
       pop();
     }
     else // fix-bg
     if (ARG_IS("fix-bg")) {
-      push(image_background(SP_1));
-      divide_image(SP_2, SP_1);
+      push(image_background((image*)SP_1));
+      divide_image((image*)SP_2, (image*)SP_1);
       pop();
     }
     else // histo
     if (ARG_IS("histo")) {
-      histogram *hi = histogram_of_image(SP_1, 0, MAXVAL);
+      histogram *hi = histogram_of_image((image*)SP_1, 0, MAXVAL);
       cumul_histogram(hi);
       dump_histogram(stdout, hi);
     }
@@ -390,19 +396,19 @@ int main(int argc, char **arg) {
     if (ARG_IS("lpp")) {
       if (! *(++arg)) break;
       default_lpp = atof(*arg);
-      if (sp) SP_1->lpp = default_lpp;
+      if (sp) ((image*)SP_1)->lpp = default_lpp;
     }
     else // quit
     if (ARG_IS("quit")) exit(0);
     else // rot +-90, 180, 270
     if (ARG_IS("rot")) {
       if (! *(++arg)) break;
-      push(rotate_image(SP_1, atoi(*arg)));
+      push(rotate_image((image*)SP_1, atoi(*arg)));
       swap(); pop();
     }
     else { // STRING
       push(read_image(fopen(*arg, "rb"), 0));
-      image_from_srgb(SP_1);
+      image_from_srgb((image*)SP_1);
     }
   }
   if (sp > 0) write_image(pop(), stdout);
