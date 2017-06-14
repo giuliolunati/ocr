@@ -153,9 +153,34 @@ image *read_image(FILE *file, int layer) {
   image *im;
   uchar *buf, *ps;
   short *pt;
+  char c;
   if (! file) error("File not found.");
-  if (4 > fscanf(file, "P%d %d %d %d\n", &depth, &width, &height, &type)) {
-    error("Not a PNM file.");
+  if (1 > fscanf(file, "P%d ", &depth)) {
+    error("Not a PNM file - wrong magic.");
+  }
+  while (1 > fscanf(file, "%d ", &width)) {
+    fscanf(file, "%c", &c);
+    if (c != '#') error("Not a PNM file - wrong width.");
+    while (1) {
+      fscanf(file, "%c", &c);
+      if (c == '\n') break;
+    }
+  }
+  while (1 > fscanf(file, "%d ", &height)) {
+    fscanf(file, "%c", &c);
+    if (c != '#') error("Not a PNM file - wrong height.");
+    while (1) {
+      fscanf(file, "%c", &c);
+      if (c == '\n') break;
+    }
+  }
+  while (1 > fscanf(file, "%d ", &type)) {
+    fscanf(file, "%c", &c);
+    if (c != '#') error("Not a PNM file - wrong type.");
+    while (1) {
+      fscanf(file, "%c", &c);
+      if (c == '\n') break;
+    }
   }
   switch (depth) {
     case 5: depth = 1; break;
