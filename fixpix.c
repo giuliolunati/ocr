@@ -397,6 +397,7 @@ void help_exit(char **args) {
   lpp FLOAT:  \n\
   quit:       \n\
   rot ANGLE:  rotate of ANGLE (only 90, -90, 180, 270)\n\
+  w FILENAME: write to file\n\
   \n");
   exit(0);
 }
@@ -454,7 +455,14 @@ int main(int argc, char **args) {
       push(rotate_image((image*)SP_1, atof(*arg)));
       swap(); pop();
     }
-    else { // STRING
+    else // w FILENAME
+    if (ARG_IS("w")) {
+      if (! *(++arg)) break;
+      if (sp > 0) {
+        write_image(pop(), fopen(*arg, "wb"));
+      }
+    }
+    else { // FILENAME
       push(read_image(fopen(*arg, "rb"), 0));
       image_from_srgb((image*)SP_1);
     }
