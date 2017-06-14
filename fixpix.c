@@ -221,14 +221,14 @@ int write_image(image *im, FILE *file) {
   free(buf);
 }
 
-image *rotate_image(image *im, int angle) {
+image *rotate_image(image *im, float angle) {
   int w = im->width, h = im->height;
   int x, y, dx, dy;
   image *om = make_image(h, w);
   om->lpp = im->lpp;
   short *i, *o;
   i = im->data; o = om->data;
-  switch (angle) {
+  switch ((int)angle) {
     case 90:
       o += h - 1; dx = h; dy = -1;
       break;
@@ -359,17 +359,40 @@ void push(void *p) {
   sp++;
 }
 
+void help_exit(char **args) {
+  printf("\nUSAGE: %s COMMANDS...\n\n", *args);
+  printf("COMMANDS:\n\
+  -h, --help: this help\n\
+  FILENAME:   load a PNM image\n\
+  -:          load from STDIN\n\
+  bg FLOAT:   \n\
+  div:        \n\
+  fix-bg:     \n\
+  histo:      \n\
+  lpp FLOAT:  \n\
+  quit:       \n\
+  rot ANGLE:  rotate of ANGLE (only 90, -90, 180, 270)\n\
+  \n");
+  exit(0);
+}
+
 //// MAIN ////
 #define ARG_IS(x) EQ((x), *arg)
-int main(int argc, char **arg) {
+int main(int argc, char **args) {
   int i, c, d;
   init_srgb();
+  char **arg = args;
 
   image * im;
+  if (argc < 2) help_exit(args);
   while (*(++arg)) { // -
     if (ARG_IS("-")) {
       push(read_image(stdin, 0));
       image_from_srgb((image*)SP_1);
+    }
+    else // -h, --help
+    if (ARG_IS("-h") || ARG_IS("--help")) {
+      help_exit(args);
     }
     else // bg FLOAT
     if (ARG_IS("bg")) {
@@ -392,7 +415,7 @@ int main(int argc, char **arg) {
       cumul_histogram(hi);
       dump_histogram(stdout, hi);
     }
-    else // lpp float
+    else // lpp FLOAT
     if (ARG_IS("lpp")) {
       if (! *(++arg)) break;
       default_lpp = atof(*arg);
@@ -403,7 +426,7 @@ int main(int argc, char **arg) {
     else // rot +-90, 180, 270
     if (ARG_IS("rot")) {
       if (! *(++arg)) break;
-      push(rotate_image((image*)SP_1, atoi(*arg)));
+      push(rotate_image((image*)SP_1, atof(*arg)));
       swap(); pop();
     }
     else { // STRING
