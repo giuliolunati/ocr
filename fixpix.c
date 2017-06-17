@@ -9,7 +9,9 @@
 #define uint unsigned int
 #define ulong unsigned long int
 #define real float
-#define MAXVAL 6552 
+#define K 16
+#define K_2 8 // K/2
+#define MAXVAL 4095 // 256 * K - 1
 #define MAXSHORT 32767
 #define EQ(a, b) (0 == strcmp((a), (b)))
 #define IS_IMAGE(p) (((char *)p)->type == 'I')
@@ -199,8 +201,8 @@ image *read_image(FILE *file, int layer) {
   for (y = 0; y < height; y++) {
     if (width > fread(buf, depth, width, file))  error("Unexpected EOF");
     ps = buf + layer;
-    for (x = 0; x < width; x++) {
-      *(pt++) = *(ps += depth);
+    for (x = 0; x < width; x++, pt++, ps += depth) {
+      *pt = *ps * K + K_2;
     }
   }
   free(buf);
@@ -224,7 +226,7 @@ void *image_from_srgb(image *im) {
 int write_image(image *im, FILE *file) {
   int x, y;
   uchar *buf, *pt;
-  short i, *ps;
+  short v, *ps;
   assert(file);
   fprintf(file, "P5\n%d %d\n255\n", im->width, im->height);
   buf = malloc(im->width * sizeof(*buf));
@@ -234,12 +236,11 @@ int write_image(image *im, FILE *file) {
   for (y = 0; y < im->height; y++) {
     pt = buf;
     for (x = 0; x < im->width; x++) {
-      i = *(ps++);
-      if (i < 1) {*(pt++) = 0; continue;}
+      v = *(ps++);
+      if (v < 0) v = 0;
       else
-      if (i > MAXVAL) {*(pt++) = 255; continue;}
-      else
-      *(pt++) = srgb_from_lin[i];
+      if (v > MAXVAL) v = MAXVAL;
+      *pt++ = v / K; 
     }
     if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
   }
@@ -411,60 +412,58 @@ int main(int argc, char **args) {
 
   image * im;
   if (argc < 2) help_exit(args);
-  while (*(++arg)) { // -
-    if (ARG_IS("-")) {
-      push(read_image(stdin, 0));
-      image_from_srgb((image*)SP_1);
-    }
-    else // -h, --help
-    if (ARG_IS("-h") || ARG_IS("--help")) {
+  while (*(++arg)) {
+    if (ARG_IS("-h") || ARG_IS("--help")) { // -h, --help
       help_exit(args);
     }
-    else // bg FLOAT
-    if (ARG_IS("bg")) {
+    else
+    if (ARG_IS("bg")) { // bg FLOAT
       push(image_background((image*)SP_1));
     }
-    else // div
-    if (ARG_IS("div")) {
+    else
+    if (ARG_IS("div")) { // div
       divide_image((image*)SP_2, (image*)SP_1);
       pop();
     }
-    else // fix-bg
-    if (ARG_IS("fix-bg")) {
+    else
+    if (ARG_IS("fix-bg")) { // fix-bg
       push(image_background((image*)SP_1));
       divide_image((image*)SP_2, (image*)SP_1);
       pop();
     }
-    else // histo
-    if (ARG_IS("histo")) {
+    else
+    if (ARG_IS("histo")) { // histo
       histogram *hi = histogram_of_image((image*)SP_1, 0, MAXVAL);
       cumul_histogram(hi);
       dump_histogram(stdout, hi);
     }
-    else // lpp FLOAT
-    if (ARG_IS("lpp")) {
+    else
+    if (ARG_IS("lpp")) { // lpp FLOAT
       if (! *(++arg)) break;
       default_lpp = atof(*arg);
       if (sp) ((image*)SP_1)->lpp = default_lpp;
     }
-    else // quit
-    if (ARG_IS("quit")) exit(0);
-    else // rot +-90, 180, 270
-    if (ARG_IS("rot")) {
+    else
+    if (ARG_IS("quit")) exit(0); // quit
+    else
+    if (ARG_IS("rot")) { // rot +-90, 180, 270
       if (! *(++arg)) break;
       push(rotate_image((image*)SP_1, atof(*arg)));
       swap(); pop();
     }
-    else // w FILENAME
-    if (ARG_IS("w")) {
+    else
+    if (ARG_IS("w")) { // w FILENAME
       if (! *(++arg)) break;
       if (sp > 0) {
         write_image(pop(), fopen(*arg, "wb"));
       }
     }
-    else { // FILENAME
-      push(read_image(fopen(*arg, "rb"), 0));
-      image_from_srgb((image*)SP_1);
+    else {
+    if (ARG_IS("-")) { // -
+      push(read_image(stdin, 0));
+    }
+    else
+      push(read_image(fopen(*arg, "rb"), 0)); // FILENAME
     }
   }
   if (sp > 0) write_image(pop(), stdout);
