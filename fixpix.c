@@ -17,6 +17,51 @@
 #define IS_IMAGE(p) (((char *)p)->type == 'I')
 #define IS_HISTOGRAM(p) (((char *)p)->type == 'H')
 
+void help(char **arg0, char *topic) {
+#define TOPIC(x) EQ((x), topic)
+if (! topic) {
+  printf("\nUSAGE: %s COMMANDS...\n\n", *arg0);
+  printf("COMMANDS:\n\
+  FILENAME:       load a PNM image\n\
+  -:              load from STDIN\n\
+  bg FLOAT:       find background light\n\
+  div:            divide im2 / im1\n\
+  fix-bg:         fix background light\n\
+  histo:          histogram\n\
+  lpp FLOAT:      set lines-per-page\n\
+  quit:           quit w/out output\n\
+  rot ANGLE:      rotate\n\
+  splitx X:       split vertically\n\
+  splity Y:       split horizontally\n\
+  w FILENAME:     write to file\n\
+  -h, --help:     this summary\n\
+  \n\
+  -h, --help COMMAND: help on COMMAND\n\
+  \n");
+} else if (TOPIC("bg")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("div")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("fix-bg")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("histo")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("lpp")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("quit")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("rot")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("splitx")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("splity")) {;
+  printf("Coming soon...\n");
+} else if (TOPIC("w")) {;
+  printf("Coming soon...\n");
+}
+exit(0);
+}
+
 //// ERRORS ////
 
 void error(const char *msg) {
@@ -405,18 +450,20 @@ void *stack[STACK_SIZE];
 #define SP_1 stack[sp - 1]
 #define SP_2 stack[sp - 2]
 #define SP_3 stack[sp - 3]
-
 int sp = 0;
+
 void *swap() {
   void *p;
   if (sp < 2) error("Stack underflow");
   p = SP_2; SP_2 = SP_1; SP_1 = p;
 }
+
 void *pop() {
   if (sp < 1) error("Stack underflow");
   sp--;
   return SP;
 }
+
 void push(void *p) {
   if (sp >= STACK_SIZE) error("Stack overflow");
   if (SP) free(SP);
@@ -424,38 +471,18 @@ void push(void *p) {
   sp++;
 }
 
-void help_exit(char **args) {
-  printf("\nUSAGE: %s COMMANDS...\n\n", *args);
-  printf("COMMANDS:\n\
-  -h, --help:     this help\n\
-  FILENAME:       load a PNM image\n\
-  -:              load from STDIN\n\
-  bg FLOAT:       \n\
-  div:            \n\
-  fix-bg:         \n\
-  histo:          \n\
-  lpp FLOAT:      \n\
-  quit:           \n\
-  rot ANGLE:      rotate of ANGLE (only 90, -90, 180, 270)\n\
-  splitx X:       split vertically at X pos (0.0 .. 1.0) \n\
-  splity Y:       split horizontally at Y pos (0.0 .. 1.0) \n\
-  w FILENAME:     write to file\n\
-  \n");
-  exit(0);
-}
-
 //// MAIN ////
-#define ARG_IS(x) EQ((x), *arg)
 int main(int argc, char **args) {
+  #define ARG_IS(x) EQ((x), *arg)
   int i, c, d;
   init_srgb();
   char **arg = args;
 
   image *im;
-  if (argc < 2) help_exit(args);
+  if (argc < 2) help(args, NULL);
   while (*(++arg)) {
     if (ARG_IS("-h") || ARG_IS("--help")) { // -h, --help
-      help_exit(args);
+      help(args, *(++arg));
     }
     else
     if (ARG_IS("bg")) { // bg FLOAT
