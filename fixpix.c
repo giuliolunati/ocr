@@ -161,26 +161,26 @@ image *read_image(FILE *file, int layer) {
     error("Not a PNM file - wrong magic.");
   }
   while (1 > fscanf(file, "%d ", &width)) {
-    fscanf(file, "%c", &c);
+    x = fscanf(file, "%c", &c);
     if (c != '#') error("Not a PNM file - wrong width.");
     while (1) {
-      fscanf(file, "%c", &c);
+      x = fscanf(file, "%c", &c);
       if (c == '\n') break;
     }
   }
   while (1 > fscanf(file, "%d ", &height)) {
-    fscanf(file, "%c", &c);
+    x = fscanf(file, "%c", &c);
     if (c != '#') error("Not a PNM file - wrong height.");
     while (1) {
-      fscanf(file, "%c", &c);
+      x = fscanf(file, "%c", &c);
       if (c == '\n') break;
     }
   }
   while (1 > fscanf(file, "%d ", &type)) {
-    fscanf(file, "%c", &c);
+    x = fscanf(file, "%c", &c);
     if (c != '#') error("Not a PNM file - wrong type.");
     while (1) {
-      fscanf(file, "%c", &c);
+      x = fscanf(file, "%c", &c);
       if (c == '\n') break;
     }
   }
@@ -277,6 +277,44 @@ image *rotate_image(image *im, float angle) {
   return om;
 }
 
+void splitx_image(void **out1, void **out2, image *im, float x) {
+  if (x <= 0) error("x must be > 0.");
+  if (x == 1) error("x must be != 1.");
+  if (x > 1) x = 1/x;
+  short *p, *p1, *p2;
+  uint y, h = im->height;
+  uint w = im->width;
+  uint w1 = w * x;
+  uint w2 = w - w1;
+  image* im1 = make_image(w1, h);
+  image* im2 = make_image(w2, h);
+  p = im->data;
+  p1 = im1->data;
+  p2 = im2->data;
+  for (y = 0; y < h; y++, p += w, p1 += w1, p2 += w2) {
+    memcpy(p1, p, w1 * sizeof(short));
+    memcpy(p2, p + w1, w2 * sizeof(short));
+  }
+  *out1 = im1;
+  *out2 = im2;
+}
+
+void splity_image(void **out1, void **out2, image *im, float y) {
+  if (y <= 0) error("y must be > 0.");
+  if (y == 1) error("y must be != 1.");
+  if (y > 1) y = 1/y;
+  uint w = im->width;
+  ulong l1, l2; 
+  uint h1 = im->height * y;
+  uint h2 = im->height - h1;
+  *out1 = make_image(w, h1);
+  *out2 = make_image(w, h2);
+  l1 = w * h1;
+  l2 = w * h2;
+  memcpy(((image*)(*out1))->data, im->data, l1 * sizeof(short));
+  memcpy(((image*)(*out2))->data, im->data + l1, l2 * sizeof(short));
+}
+
 image *image_background(image *im) {
   // find light background
   real d = im->lpp;
@@ -366,6 +404,7 @@ void *stack[STACK_SIZE];
 #define SP stack[sp]
 #define SP_1 stack[sp - 1]
 #define SP_2 stack[sp - 2]
+#define SP_3 stack[sp - 3]
 
 int sp = 0;
 void *swap() {
@@ -388,17 +427,19 @@ void push(void *p) {
 void help_exit(char **args) {
   printf("\nUSAGE: %s COMMANDS...\n\n", *args);
   printf("COMMANDS:\n\
-  -h, --help: this help\n\
-  FILENAME:   load a PNM image\n\
-  -:          load from STDIN\n\
-  bg FLOAT:   \n\
-  div:        \n\
-  fix-bg:     \n\
-  histo:      \n\
-  lpp FLOAT:  \n\
-  quit:       \n\
-  rot ANGLE:  rotate of ANGLE (only 90, -90, 180, 270)\n\
-  w FILENAME: write to file\n\
+  -h, --help:     this help\n\
+  FILENAME:       load a PNM image\n\
+  -:              load from STDIN\n\
+  bg FLOAT:       \n\
+  div:            \n\
+  fix-bg:         \n\
+  histo:          \n\
+  lpp FLOAT:      \n\
+  quit:           \n\
+  rot ANGLE:      rotate of ANGLE (only 90, -90, 180, 270)\n\
+  splitx X:       split vertically at X pos (0.0 .. 1.0) \n\
+  splity Y:       split horizontally at Y pos (0.0 .. 1.0) \n\
+  w FILENAME:     write to file\n\
   \n");
   exit(0);
 }
@@ -410,7 +451,7 @@ int main(int argc, char **args) {
   init_srgb();
   char **arg = args;
 
-  image * im;
+  image *im;
   if (argc < 2) help_exit(args);
   while (*(++arg)) {
     if (ARG_IS("-h") || ARG_IS("--help")) { // -h, --help
@@ -450,6 +491,22 @@ int main(int argc, char **args) {
       if (! *(++arg)) break;
       push(rotate_image((image*)SP_1, atof(*arg)));
       swap(); pop();
+    }
+    else
+    if (ARG_IS("splitx")) { // splitx FLOAT
+      if (! *(++arg)) break;
+      push(0); swap();
+      push(0); swap();
+      splitx_image(&SP_2, &SP_3, (image*)SP_1, atof(*arg));
+      pop();
+    }
+    else
+    if (ARG_IS("splity")) { // splity FLOAT
+      if (! *(++arg)) break;
+      push(0); swap();
+      push(0); swap();
+      splity_image(&SP_2, &SP_3, (image*)SP_1, atof(*arg));
+      pop();
     }
     else
     if (ARG_IS("w")) { // w FILENAME
