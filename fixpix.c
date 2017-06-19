@@ -119,7 +119,7 @@ vector *make_vector(uint size) {
     error("Can't alloc vector.");
   v->size = size;
   if ( ! (
-    v->data = malloc(size * sizeof(v->data))
+    v->data = calloc(size, sizeof(v->data))
   )) error("Can't alloc vector data.");
   v->len = 0;
   v->x0 = 0.0;
@@ -425,18 +425,19 @@ void *divide_image(image *a, image *b) {
   }
 }
 
-vector *histogram_of_image(image *im, int a, int z) {
-  vector *hi = make_vector(z - a + 1);
-  hi->x0 = a;
+vector *histogram_of_image(image *im) {
+  vector *hi = make_vector(256);
   hi->len = hi->size;
   short *p = im->data;
   real *d = hi->data;
   int x, y, h = im->height, w = im->width;
   for (y = 0; y < h; y++) {
     for (x = 0; x < w; x++) {
-      if (*p > z) d[z - a] += 1;
-      else if (*p < a) d[0] += 1;
-      else d[*p - a] += 1;
+      if (*p < 0) d[0] += 1;
+      else
+      if (*p > MAXVAL) d[255] += 1;
+      else
+      d[*p / K] += 1;
       p ++;
     }
   }
@@ -501,8 +502,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("histo")) { // histo
-      vector *v = histogram_of_image((image*)SP_1, 0, MAXVAL);
-      cumul_vector(v);
+      vector *v = histogram_of_image((image*)SP_1);
       dump_vector(stdout, v);
     }
     else
