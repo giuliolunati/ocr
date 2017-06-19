@@ -15,7 +15,7 @@
 #define MAXSHORT 32767
 #define EQ(a, b) (0 == strcmp((a), (b)))
 #define IS_IMAGE(p) (((char *)p)->type == 'I')
-#define IS_HISTOGRAM(p) (((char *)p)->type == 'H')
+#define IS_VECTOR(p) (((char *)p)->type == 'V')
 
 void help(char **arg0, char *topic) {
 #define TOPIC(x) EQ((x), topic)
@@ -102,61 +102,61 @@ void init_srgb() {
   }
 }
 
-//// HISTOGRAMS ////
+//// VECTORS ////
 
-typedef struct { // histogram
+typedef struct { // vector
   real *data;
   uint len;
   uint size;
   real x0;
   real dx;
   char type;
-} histogram;
+} vector;
 
-histogram *make_histogram(uint size) {
-  histogram *hi;;
-  if (! (hi = malloc(sizeof(histogram))))
-    error("Can't alloc histogram.");
-  hi->size = size;
+vector *make_vector(uint size) {
+  vector *v;;
+  if (! (v = malloc(sizeof(vector))))
+    error("Can't alloc vector.");
+  v->size = size;
   if ( ! (
-    hi->data = malloc(size * sizeof(hi->data))
-  )) error("Can't alloc histogram data.");
-  hi->len = 0;
-  hi->x0 = 0.0;
-  hi->dx = 1.0;
-  hi->type = 'H';
-  return hi;
+    v->data = malloc(size * sizeof(v->data))
+  )) error("Can't alloc vector data.");
+  v->len = 0;
+  v->x0 = 0.0;
+  v->dx = 1.0;
+  v->type = 'V';
+  return v;
 }
 
-void destroy_histogram(histogram *h) {
+void destroy_vector(vector *h) {
   if (! h) return;
   if (h->data) free(h->data);
   free(h);
 }
 
-void cumul_histogram(histogram *hi) {
+void cumul_vector(vector *v) {
   uint i;
-  real *p = hi->data;
-  for (i = 1; i < hi->len; i ++) {
+  real *p = v->data;
+  for (i = 1; i < v->len; i ++) {
     p[i] += p[i - 1];
   }
 }
 
-void diff_histogram(histogram *hi) {
+void diff_vector(vector *v) {
   uint i;
-  real *p = hi->data;
-  for (i = hi->len - 1; i > 0; i --) {
+  real *p = v->data;
+  for (i = v->len - 1; i > 0; i --) {
     p[i] -= p[i - 1];
   }
 }
 
-void dump_histogram(FILE *f, histogram *hi) {
+void dump_vector(FILE *f, vector *v) {
   uint i;
-  real *p = hi->data;
+  real *p = v->data;
   fprintf(f, "# x0: %f dx: %f len: %d\n",
-      hi->x0, hi->dx, hi->len
+      v->x0, v->dx, v->len
   );
-  for (i = 0; i < hi->len; i ++) {
+  for (i = 0; i < v->len; i ++) {
     fprintf(f, "%f\n", p[i]);
   }
 }
@@ -425,8 +425,8 @@ void *divide_image(image *a, image *b) {
   }
 }
 
-histogram *histogram_of_image(image *im, int a, int z) {
-  histogram *hi = make_histogram(z - a + 1);
+vector *histogram_of_image(image *im, int a, int z) {
+  vector *hi = make_vector(z - a + 1);
   hi->x0 = a;
   hi->len = hi->size;
   short *p = im->data;
@@ -501,9 +501,9 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("histo")) { // histo
-      histogram *hi = histogram_of_image((image*)SP_1, 0, MAXVAL);
-      cumul_histogram(hi);
-      dump_histogram(stdout, hi);
+      vector *v = histogram_of_image((image*)SP_1, 0, MAXVAL);
+      cumul_vector(v);
+      dump_vector(stdout, v);
     }
     else
     if (ARG_IS("lpp")) { // lpp FLOAT
