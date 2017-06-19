@@ -14,8 +14,8 @@
 #define MAXVAL 4095 // 256 * K - 1
 #define MAXSHORT 32767
 #define EQ(a, b) (0 == strcmp((a), (b)))
-#define IS_IMAGE(p) (((char *)p)->type == 'I')
-#define IS_VECTOR(p) (((char *)p)->type == 'V')
+#define IS_IMAGE(p) (((image *)p)->type == 'I')
+#define IS_VECTOR(p) (((vector *)p)->type == 'V')
 
 void help(char **arg0, char *topic) {
 #define TOPIC(x) EQ((x), topic)
@@ -105,12 +105,12 @@ void init_srgb() {
 //// VECTORS ////
 
 typedef struct { // vector
+  char type;
   real *data;
   uint len;
   uint size;
   real x0;
   real dx;
-  char type;
 } vector;
 
 vector *make_vector(uint size) {
@@ -150,25 +150,23 @@ void diff_vector(vector *v) {
   }
 }
 
-void dump_vector(FILE *f, vector *v) {
+void write_vector(vector *v, FILE *f) {
   uint i;
   real *p = v->data;
-  fprintf(f, "# x0: %f dx: %f len: %d\n",
-      v->x0, v->dx, v->len
-  );
-  for (i = 0; i < v->len; i ++) {
-    fprintf(f, "%f\n", p[i]);
+  real x = v->x0;
+  for (i = 0; i < v->len; i ++, x += v->dx) {
+    fprintf(f, "%f %f\n", x, p[i]);
   }
 }
 
 //// IMAGES ////
 
 typedef struct { // image
+  char type;
   short *data;
   uint width;
   uint height;
   real lpp; // lines-per-page: height / line-height
-  char type;
 } image;
 
 real default_lpp = 40;
@@ -476,10 +474,13 @@ void push(void *p) {
 int main(int argc, char **args) {
   #define ARG_IS(x) EQ((x), *arg)
   int i, c, d;
-  init_srgb();
   char **arg = args;
-
   image *im;
+  vector *v;
+  void *p;
+  FILE *f;
+
+  init_srgb();
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
     if (ARG_IS("-h") || ARG_IS("--help")) { // -h, --help
@@ -502,8 +503,8 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("histo")) { // histo
-      vector *v = histogram_of_image((image*)SP_1);
-      dump_vector(stdout, v);
+      v = histogram_of_image((image*)SP_1);
+      push(v);
     }
     else
     if (ARG_IS("lpp")) { // lpp FLOAT
@@ -538,9 +539,12 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("w")) { // w FILENAME
       if (! *(++arg)) break;
-      if (sp > 0) {
-        write_image(pop(), fopen(*arg, "wb"));
-      }
+      if (sp <= 0) error("Empty stack.");
+      p = pop();
+      f = fopen(*arg, "wb");
+      if (IS_IMAGE(p)) write_image(p, f);
+      else
+      if (IS_VECTOR(p)) write_vector(p, f);
     }
     else {
     if (ARG_IS("-")) { // -
@@ -550,7 +554,13 @@ int main(int argc, char **args) {
       push(read_image(fopen(*arg, "rb"), 0)); // FILENAME
     }
   }
-  if (sp > 0) write_image(pop(), stdout);
+  if (sp > 0) {
+    p = pop();
+    f = stdout;
+    if (IS_IMAGE(p)) write_image(p, f);
+    else
+    if (IS_VECTOR(p)) write_vector(p, f);
+  }
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:
