@@ -159,6 +159,16 @@ void write_vector(vector *v, FILE *f) {
   }
 }
 
+uint index_of_max(vector *v) {
+  uint i, j = 0;
+  real *p = v->data;
+  real m = p[0];
+  for (p++, i = 1; i < v->len; i++, p++) {
+    if (*p > m) {m = *p; j = i;}
+  }
+  return j;
+}
+
 //// IMAGES ////
 
 typedef struct { // image
@@ -410,7 +420,7 @@ image *image_background(image *im) {
   return om;
 }
 
-void *divide_image(image *a, image *b) {
+void divide_image(image *a, image *b) {
   int h = a->height;
   int w = a->width;
   int i;
@@ -441,6 +451,35 @@ vector *histogram_of_image(image *im) {
   }
   return hi;
 }
+
+vector *threshold_histogram(image *im) {
+  vector *hi = make_vector(256);
+  hi->len = hi->size;
+  real *v = hi->data;
+  int x, y, h = im->height, w = im->width;
+  short *pi = im->data;
+  short *px = pi + 1;
+  short *py = pi + w;
+  short a, b, c;
+  uint d;
+  for (y = 0; y < h - 1; y++) {
+    for (x = 0; x < w - 1; x++) {
+      a = *pi / K; b = *px / K;
+      if (a > b) {c = b; b = a; a = c;}
+      d = b - a;
+      v[a] += d; v[b] -= d;
+      a = *pi / K; b = *py / K;
+      if (a > b) {c = b; b = a; a = c;}
+      d = b - a;
+      v[a] += d; v[b] -= d;
+      pi ++; px ++, py ++;
+    }
+    pi ++; px ++, py ++;
+  }
+  cumul_vector(hi);
+  return hi;
+}
+
 
 //// STACK ////
 #define STACK_SIZE 256
@@ -473,7 +512,6 @@ void push(void *p) {
 //// MAIN ////
 int main(int argc, char **args) {
   #define ARG_IS(x) EQ((x), *arg)
-  int i, c, d;
   char **arg = args;
   image *im;
   vector *v;
@@ -535,6 +573,12 @@ int main(int argc, char **args) {
       push(0); swap();
       splity_image(&SP_2, &SP_3, (image*)SP_1, atof(*arg));
       pop();
+    }
+    else
+    if (ARG_IS("thr")) { // thr
+      v = threshold_histogram((image*)SP_1);
+      push(v);
+      printf("thr: %d\n", index_of_max(v));
     }
     else
     if (ARG_IS("w")) { // w FILENAME
