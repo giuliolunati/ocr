@@ -33,7 +33,7 @@ if (! topic) {
   ex FLOAT:       set height-of-x\n\
   norm STRENGTH:  normalize contrast\n\
   quit:           quit w/out output\n\
-  rot ANGLE:      rotate\n\
+  rot ANGLE:      rotate (only +-90 180 270)\n\
   splitx X:       split vertically\n\
   splity Y:       split horizontally\n\
   w FILENAME:     write to file\n\
@@ -153,7 +153,7 @@ vector *copy_vector(vector *v0) {
 void cumul_vector(vector *v) {
   uint i;
   real *p = v->data;
-  for (i = 1; i < v->len; i ++) {
+  for (i = 1; i < v->len; i++) {
     p[i] += p[i - 1];
   }
 }
@@ -161,7 +161,7 @@ void cumul_vector(vector *v) {
 void diff_vector(vector *v) {
   uint i;
   real *p = v->data;
-  for (i = v->len - 1; i > 0; i --) {
+  for (i = v->len - 1; i > 0; i--) {
     p[i] -= p[i - 1];
   }
 }
@@ -170,7 +170,7 @@ void write_vector(vector *v, FILE *f) {
   uint i;
   real *p = v->data;
   real x = v->x0;
-  for (i = 0; i < v->len; i ++, x += v->dx) {
+  for (i = 0; i < v->len; i++, x += v->dx) {
     fprintf(f, "%f %f\n", x, p[i]);
   }
 }
@@ -316,7 +316,7 @@ int write_image(image *im, FILE *file) {
   free(buf);
 }
 
-image *rotate_image(image *im, float angle) {
+image *rotate_90_image(image *im, int angle) {
   int w = im->width, h = im->height;
   int x, y, dx, dy;
   image *om = make_image(h, w);
@@ -325,9 +325,11 @@ image *rotate_image(image *im, float angle) {
   i = im->data; o = om->data;
   switch ((int)angle) {
     case 90:
+    case -270:
       o += h - 1; dx = h; dy = -1;
       break;
     case 180:
+    case -180:
       om->width = w; om->height = h;
       o += h * w - 1; dx = -1; dy = -w;
       break;
@@ -335,7 +337,7 @@ image *rotate_image(image *im, float angle) {
     case -90:
       o += h * w - h; dx = -h; dy = 1;
       break;
-    default: error("rotate: only +/-90, 180, 270");
+    default: assert(0);
   }
   for (y = 0; y < h; y++) {
     for (x = 0; x < w; x++) {
@@ -344,6 +346,14 @@ image *rotate_image(image *im, float angle) {
     o += dy - w * dx;
   }
   return om;
+}
+
+image *rotate_image(image *im, float angle) {
+  float r = angle / 90;
+  int n = roundf(r);
+  r = angle - (90 * n);
+  n = (n % 4) * 90;
+  return rotate_90_image(im, n);
 }
 
 void splitx_image(void **out1, void **out2, image *im, float x) {
@@ -462,7 +472,7 @@ vector *histogram_of_image(image *im) {
       if (*p > MAXVAL) d[255] += 1;
       else
       d[*p / K] += 1;
-      p ++;
+      p++;
     }
   }
   return hi;
@@ -488,9 +498,9 @@ vector *threshold_histogram(image *im) {
       if (a > b) {c = b; b = a; a = c;}
       d = b - a;
       v[a] += d; v[b] -= d;
-      pi ++; px ++, py ++;
+      pi++; px++, py++;
     }
-    pi ++; px ++, py ++;
+    pi++; px++, py++;
   }
   cumul_vector(hi);
   return hi;
@@ -524,13 +534,13 @@ void normalize_image(image *im, real strength) {
   vector *v1 = copy_vector(v0);
   real w, b, max0, max1, *p = v1->data;
   uint c, c1;
-  for (i = 0; i < v1->len; i ++, p ++) *p *= i;
+  for (i = 0; i < v1->len; i++, p++) *p *= i;
   cumul_vector(v0);
   cumul_vector(v1);
   max0 = v0->data[255];
   max1 = v1->data[255];
   c = max1 / max0;
-  for (i = 0; i < 100; i ++) {
+  for (i = 0; i < 100; i++) {
     b = v1->data[c] / v0->data[c];
     w = (max1 - v1->data[c]) / (max0 -v0->data[c]);
     c1 = (b + w + 1) / 2;
@@ -541,7 +551,7 @@ void normalize_image(image *im, real strength) {
 
   uint x1, x2;
   real y1, y2, m, q, mb, qb, mw, qw, yb, yw;
-  for (j = 0; j < 9; j ++) {
+  for (j = 0; j < 9; j++) {
     // gray zone
     x1 = (3*b + w) / 4;
     x2 = (b + 3*w) / 4;
@@ -554,12 +564,12 @@ void normalize_image(image *im, real strength) {
     yb = m * b + q;
     y1 = yb * 0.25;
     y2 = yb * 0.75;
-    for (i = 0; i < 256; i ++) {
+    for (i = 0; i < 256; i++) {
       x1 = i;
       if (v0->data[i] <= y1) continue;
       break;
     }
-    for (i = x1; i < 256; i ++) {
+    for (i = x1; i < 256; i++) {
       x2 = i;
       if (v0->data[i] < y2) continue;
       break;
@@ -573,12 +583,12 @@ void normalize_image(image *im, real strength) {
     yw = m * w + q;
     y1 = (3*yw + max0) / 4;
     y2 = (yw + 3*max0) / 4;
-    for (i = 255; i >= 0 ; i --) {
+    for (i = 255; i >= 0 ; i--) {
       x2 = i;
       if (v0->data[i] >= y2) continue;
       break;
     }
-    for (i = x2; i >=0; i --) {
+    for (i = x2; i >=0; i--) {
       x1 = i;
       if (v0->data[i] >= y1) continue;
       break;
@@ -614,6 +624,194 @@ void normalize_image(image *im, real strength) {
 
   destroy_vector(v0);
   destroy_vector(v1);
+}
+
+void shearx_image(image *im, real t) {
+  // t = tan(angle * M_PI / 180);
+  uint h = im->height;
+  uint w = im->width;
+  uint y;
+  int di;
+  real dr, df, ca, cb, cc, cd;;
+  short *end, *p, *a, *b;
+  short *buf = malloc(w * sizeof(*buf));
+  for (y = 0; y < h; y++) {
+    memcpy(buf, im->data + (w * y), w * sizeof(*buf));
+    dr = ((int)y - (int)h/2) * t;
+    di = floor(dr);
+    df = dr - di;
+    if (di > 0) {
+      cb = df; ca = 1 - cb;
+      p = im->data + (w * y);
+      end = p + w;
+      b = buf + di;
+      a = b - 1;
+      for (; p + di < end; p++, a++, b++) *p = cb * *b + ca * *a;
+      for (; p < end; p++) *p = MAXVAL;
+    } else {
+      cb = df; ca = 1 - cb;
+      p = im->data + (w * y) + w - 1;
+      end = p - w;
+      b = buf + w - 1 + di;
+      a = b - 1;
+      for (; p + di - 1 > end; p--, a--, b--) *p = cb * *b + ca * *a;
+      for (; p > end; p--) *p = MAXVAL;
+    }
+  }
+  free(buf);
+}
+
+void sheary_image(image *im, real t) {
+  // t = tan(angle * M_PI / 180);
+  uint w = im->width;
+  uint h = im->height;
+  short *p, *end;
+  short *buf = malloc(w * sizeof(*buf));
+  int d, *di = malloc(w * sizeof(*di));
+  real f, dr, *df = malloc(w * sizeof(*df));
+  int a, b, x, y;
+  for (x = 0; x < w; x++) {
+    dr = ((int)w/2 - (int)x) * t;
+    di[x] = floor(dr) * w;
+    df[x] = dr - floor(dr);
+  }
+  end = im->data + (w * h);
+  // down
+  if (t > 0) {a = 0; b = w/2;}
+  else  {a = w/2; b = w;}
+  for (y = 0; y < h; y++) {
+    p = im->data + (y * w) + a;
+    for (x = a; x < b; x++, p++) {
+      d = di[x];
+      f = df[x];
+      if (p + d + w < end) {
+        buf[x] = (1-f) * *(p + d) + f * *(p + d + w);
+      } else {
+        buf[x] = *MAXVAL;
+      }
+    }
+    memcpy(
+      im->data + y * w + a,
+      buf + a ,
+      (b - a) * sizeof(*buf)
+    );
+  }
+  if (t > 0) {a = w/2; b = w;}
+  else  {a = 0; b = w/2;}
+  for (y = h - 1; y >= 0; y--) { // y MUST be signed!
+    p = im->data + (y * w) + a;
+    for (x = a; x < b; x++, p++) {
+      d = di[x];
+      f = df[x];
+      if (p + d + w >= end) {
+        assert(d == 0);
+        buf[x] = *p;
+      }
+      else
+      if (p + d >= im->data) {
+        buf[x] = (1-f) * *(p + d) + f * *(p + d + w);
+      }
+      else {
+        buf[x] = *MAXVAL;
+      }
+    }
+    memcpy(
+      im->data + y * w + a,
+      buf + a ,
+      (b - a) * sizeof(*buf)
+    );
+  }
+  free(buf);
+  free(di);
+  free(df);
+}
+
+void skew(image* im, real angle) {
+  angle *= M_PI /180;
+  if fabs(angle) > 45 error("skew: angle must be between -45 and 45.");
+  real b = sin(angle);
+  real a = b / (1 + cos(angle));
+  shearx_image(im, a);
+  sheary_image(im, b);
+  shearx_image(im, a);
+}
+
+void mean_y(image *im, uint d) {
+  uint w = im->width;
+  uint h = im->height;
+  real *v = calloc(w * (d + 1), sizeof(*v));
+  real *r1, *r, *rd;
+  int y, i;
+  short *p, *q, *end;
+  for (y = 0; y < h; y++) {
+    i = (y+1) % (d+1);
+    rd = v + w * i;
+    i = (i+d) % (d+1);
+    r = v + w * i;
+    i = (i+d) % (d+1);
+    r1 = v + w * i;
+    p = im->data + y * w;
+    i = y - d/2;
+    if (y >= d) q = im->data + i * w;
+    else q = 0;
+    end = p + w;
+    for (; p < end; p++, r1++, r++, rd++) {
+      *r = *r1 + *p;
+      if (q) *(q++) = (*r - *rd) / d;
+    }
+  }
+  free(v);
+}
+
+real detect_skew(image *im) {
+  uint d, i, y, w1, w = im->width;
+  uint h = im->height;
+  // create test image
+  d = im->ex;
+  if (d == 0) d = default_ex;
+  //d *= 6;
+  w1 = floor(w / d);
+  image *test = make_image(w1, h);
+  real dx, dy, n, t;
+  short *p, *q, *end;
+  for (y = 0; y < h; y++) {
+    p = test->data + y * w1;
+    end = p + w1;
+    q = im->data + y * w;
+    for (; p < end; p++) {
+      t = 0;
+      for (i = 0; i < d; i++, q++) t += *q;
+      *p = t / d;
+    }
+  }
+  mean_y(test, d);
+  for (y = d; y < h; y++) {
+    p = test->data + y * w1;
+    q = p - d * w1;
+    end = p + w1;
+    for (; p < end; p++, q++) {
+      *q -= *p - MAXVAL/2;
+    }
+  }
+  // calc skew
+  n = t = 0;
+  for (y = 1; y < h - d; y++) {
+    q = test->data + y * w1;
+    p = q - w1;
+    end = q + w1 - 1;
+    for (; q < end; p++, q++) {
+      dy = *p + *(p + 1) - *q - *(q + 1);
+      dx = *(p + 1) + *(q + 1) - *p - *q;
+      if ( fabs(dy) < 4 *
+        fabs(*p + *(q + 1) - *q - *(p + 1))
+      ) {continue;}
+      if (fabs(dx) > fabs(dy) * d) {continue;}
+      if (dy > 0) {t -= dx; n += dy;}
+      else {t += dx; n -= dy;}
+    }
+  }
+  t /= n * d;
+  return atan(t) * 180 / M_PI;
 }
 
 //// STACK ////
@@ -657,7 +855,7 @@ int main(int argc, char **args) {
   init_srgb();
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
-    if (ARG_IS("-h") || ARG_IS("--help")) { // -h, --help
+    if (ARG_IS("-h") || ARG_IS("--help")) { // -h,--help
       help(args, *(++arg));
     }
     else
@@ -670,6 +868,10 @@ int main(int argc, char **args) {
       if (! *(++arg)) error("norm: missing parameter");
       contrast_image((image*)SP_1, atof(*(arg-1)), atof(*arg));
     }
+    if (ARG_IS("deskew")) { // deskew
+      skew( (image*)SP_1, detect_skew((image*)SP_1) );
+    }
+    else
     if (ARG_IS("div")) { // div
       divide_image((image*)SP_2, (image*)SP_1);
       pop();
@@ -709,6 +911,11 @@ int main(int argc, char **args) {
       if (! *(++arg)) error("rot: missing parameter");
       push(rotate_image((image*)SP_1, atof(*arg)));
       swap(); pop();
+    }
+    else
+    if (ARG_IS("skew")) { // skew FLOAT
+      if (! *(++arg)) error("skew: missing parameter");
+      skew((image*)SP_1, atof(*arg));
     }
     else
     if (ARG_IS("splitx")) { // splitx FLOAT
