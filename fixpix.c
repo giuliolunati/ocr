@@ -30,7 +30,7 @@ if (! topic) {
   div:            divide im2 / im1\n\
   fix-bg:         fix background light\n\
   histo:          histogram\n\
-  lpp FLOAT:      set lines-per-page\n\
+  ex FLOAT:       set height-of-x\n\
   norm STRENGTH:  normalize contrast\n\
   quit:           quit w/out output\n\
   rot ANGLE:      rotate\n\
@@ -51,7 +51,7 @@ if (! topic) {
   printf("Coming soon...\n");
 } else if (TOPIC("histo")) {;
   printf("Coming soon...\n");
-} else if (TOPIC("lpp")) {;
+} else if (TOPIC("ex")) {;
   printf("Coming soon...\n");
 } else if (TOPIC("norm")) {;
   printf("Coming soon...\n");
@@ -192,10 +192,10 @@ typedef struct { // image
   short *data;
   uint width;
   uint height;
-  real lpp; // lines-per-page: height / line-height
+  real ex; // height of x in pixels
 } image;
 
-real default_lpp = 40;
+real default_ex = 25;
 
 image *make_image(int width, int height) {
   image *im;
@@ -208,7 +208,7 @@ image *make_image(int width, int height) {
   im->height = height;
   im->width = width;
   im->data = data;
-  im->lpp = 0;
+  im->ex = 0;
   im->type = 'I';
   return im;
 }
@@ -320,7 +320,7 @@ image *rotate_image(image *im, float angle) {
   int w = im->width, h = im->height;
   int x, y, dx, dy;
   image *om = make_image(h, w);
-  om->lpp = im->lpp;
+  om->ex = im->ex;
   short *i, *o;
   i = im->data; o = om->data;
   switch ((int)angle) {
@@ -386,13 +386,13 @@ void splity_image(void **out1, void **out2, image *im, float y) {
 
 image *image_background(image *im) {
   // find light background
-  real d = im->lpp;
-  if (d <= 0) d = default_lpp;
-  d /= im->height;
+  real d = im->ex;
+  if (d <= 0) d = default_ex;
+  d = 0.333 / d;
   d = exp(-d);
   int x, y, h = im->height, w = im->width;
   image *om = make_image(w, h);
-  om->lpp = im->lpp;
+  om->ex = im->ex;
   real t, *v0, *v1;
   v0 = malloc(w * sizeof(*v0));
   v1 = malloc(w * sizeof(*v1));
@@ -652,6 +652,7 @@ int main(int argc, char **args) {
   vector *v;
   void *p;
   FILE *f;
+  real t;
 
   init_srgb();
   if (argc < 2) help(args, NULL);
@@ -674,6 +675,18 @@ int main(int argc, char **args) {
       pop();
     }
     else
+    if (ARG_IS("ex")) { // ex FLOAT
+      if (! *(++arg)) error("ex: missing parameter");
+      t = atof(*arg);
+      if (t <= 0) error("ex param must be > 0.");
+      if (sp) {
+        im = (image*)SP_1;
+        if (t < 1) t *= im->height;
+        im->ex = t;
+      }
+      default_ex = t;
+    }
+    else
     if (ARG_IS("fix-bg")) { // fix-bg
       push(image_background((image*)SP_1));
       divide_image((image*)SP_2, (image*)SP_1);
@@ -683,12 +696,6 @@ int main(int argc, char **args) {
     if (ARG_IS("histo")) { // histo
       v = histogram_of_image((image*)SP_1);
       push(v);
-    }
-    else
-    if (ARG_IS("lpp")) { // lpp FLOAT
-      if (! *(++arg)) error("lpp: missing parameter");
-      default_lpp = atof(*arg);
-      if (sp) ((image*)SP_1)->lpp = default_lpp;
     }
     else
     if (ARG_IS("norm")) { // norm FLOAT
