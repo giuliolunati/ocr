@@ -3,3 +3,4 @@ images.cc
 fixpix-0.c
 *.pnm
 *.jpg
+*.o
