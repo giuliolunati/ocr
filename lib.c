@@ -9,6 +9,13 @@ void error(const char *msg) {
   exit(1);
 }
 
+void error1(const char *msg, const char *param) {
+  fprintf(stderr, "ERROR: ");
+  fprintf(stderr, "%s %s", msg, param);
+  fprintf(stderr, "\n");
+  exit(1);
+}
+
 //// SRGB ////
   // 0 <= srgb <= 1  0 <= lin <= 1
   // srgb < 0.04045: lin = srgb / 12.92

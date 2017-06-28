@@ -103,29 +103,29 @@ int main(int argc, char **args) {
   init_srgb();
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
-    if (ARG_IS("-h") || ARG_IS("--help")) { // -h,--help
+    if (ARG_IS("-h") || ARG_IS("--help")) {
       help(args, *(++arg));
     }
     else
-    if (ARG_IS("bg")) { // bg FLOAT
+    if (ARG_IS("bg")) { // FLOAT
       push(image_background((image*)SP_1));
     }
     else
-    if (ARG_IS("contrast")) { // norm BLACK WHITE
+    if (ARG_IS("contrast")) { // BLACK WHITE
       if (! *(++arg)) error("norm: missing parameter");
       if (! *(++arg)) error("norm: missing parameter");
       contrast_image((image*)SP_1, atof(*(arg-1)), atof(*arg));
     }
-    if (ARG_IS("deskew")) { // deskew
+    if (ARG_IS("deskew")) {
       skew( (image*)SP_1, detect_skew((image*)SP_1) );
     }
     else
-    if (ARG_IS("div")) { // div
+    if (ARG_IS("div")) {
       divide_image((image*)SP_2, (image*)SP_1);
       pop();
     }
     else
-    if (ARG_IS("ex")) { // ex FLOAT
+    if (ARG_IS("ex")) { // FLOAT
       if (! *(++arg)) error("ex: missing parameter");
       t = atof(*arg);
       if (t <= 0) error("ex param must be > 0.");
@@ -137,36 +137,36 @@ int main(int argc, char **args) {
       default_ex = t;
     }
     else
-    if (ARG_IS("fix-bg")) { // fix-bg
+    if (ARG_IS("fix-bg")) {
       push(image_background((image*)SP_1));
       divide_image((image*)SP_2, (image*)SP_1);
       pop();
     }
     else
-    if (ARG_IS("histo")) { // histo
+    if (ARG_IS("histo")) {
       v = histogram_of_image((image*)SP_1);
       push(v);
     }
     else
-    if (ARG_IS("norm")) { // norm FLOAT
+    if (ARG_IS("norm")) { // FLOAT
       if (! *(++arg)) error("norm: missing parameter");
       normalize_image((image*)SP_1, atof(*arg));
     }
     else
-    if (ARG_IS("quit")) exit(0); // quit
+    if (ARG_IS("quit")) exit(0);
     else
-    if (ARG_IS("rot")) { // rot +-90, 180, 270
+    if (ARG_IS("rot")) { // +-90, 180, 270
       if (! *(++arg)) error("rot: missing parameter");
       push(rotate_image((image*)SP_1, atof(*arg)));
       swap(); pop();
     }
     else
-    if (ARG_IS("skew")) { // skew FLOAT
+    if (ARG_IS("skew")) { // FLOAT
       if (! *(++arg)) error("skew: missing parameter");
       skew((image*)SP_1, atof(*arg));
     }
     else
-    if (ARG_IS("splitx")) { // splitx FLOAT
+    if (ARG_IS("splitx")) { // FLOAT
       if (! *(++arg)) error("splitx: missing parameter");
       push(0); swap();
       push(0); swap();
@@ -174,7 +174,7 @@ int main(int argc, char **args) {
       pop();
     }
     else
-    if (ARG_IS("splity")) { // splity FLOAT
+    if (ARG_IS("splity")) { // FLOAT
       if (! *(++arg)) error("splity: missing parameter");
       push(0); swap();
       push(0); swap();
@@ -182,13 +182,13 @@ int main(int argc, char **args) {
       pop();
     }
     else
-    if (ARG_IS("thr")) { // thr
+    if (ARG_IS("thr")) {
       v = threshold_histogram((image*)SP_1);
       push(v);
       printf("thr: %d\n", index_of_max(v));
     }
     else
-    if (ARG_IS("w")) { // w FILENAME
+    if (ARG_IS("w")) { // FILENAME
       if (! *(++arg)) error("w: missing parameter");
       p = pop();
       f = fopen(*arg, "wb");
@@ -196,13 +196,15 @@ int main(int argc, char **args) {
       else
       if (IS_VECTOR(p)) write_vector(p, f);
     }
-    else {
-    if (ARG_IS("-")) { // -
+    else
+    if (ARG_IS("-")) {
       push(read_image(stdin, 0));
     }
     else
-      push(read_image(fopen(*arg, "rb"), 0)); // FILENAME
+    if (strchr(*arg, '.')) { // FILENAME.EXT
+      push(read_image(fopen(*arg, "rb"), 0));
     }
+    else error1("Command not found:", *arg);
   }
   if (sp > 0) {
     p = pop();
