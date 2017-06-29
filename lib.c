@@ -87,11 +87,11 @@ void cumul_vector(vector *v) {
   }
 }
 
-void diff_vector(vector *v) {
+void diff_vector(vector *v, uint d) {
   uint i;
   real *p = v->data;
-  for (i = v->len - 1; i > 0; i--) {
-    p[i] -= p[i - 1];
+  for (i = v->len - 1; i >= d; i--) {
+    p[i] -= p[i - d];
   }
 }
 
@@ -129,7 +129,7 @@ image *make_image(int width, int height) {
   im->height = height;
   im->width = width;
   im->data = data;
-  im->ex = 0;
+  im->ex = default_ex;
   im->type = 'I';
   return im;
 }
@@ -689,8 +689,6 @@ real detect_skew(image *im) {
   uint h = im->height;
   // create test image
   d = im->ex;
-  if (d == 0) d = default_ex;
-  //d *= 6;
   w1 = floor(w / d);
   image *test = make_image(w1, h);
   real dx, dy, n, t;
@@ -733,6 +731,113 @@ real detect_skew(image *im) {
   }
   t /= n * d;
   return atan(t) * 180 / M_PI;
+}
+
+image *crop(image *im, int x1, int y1, int x2, int y2) {
+  int w = im->width;
+  int h = im->height;
+  int w1 = x2 - x1 + 1;
+  int h1 = y2 - y1 + 1;
+  int i;
+  short *s, *t;
+  if (x1 < 0 || x2 <= x1 || x2 >= w) error("cropx: wrong x parameters\n");
+  if (y1 < 0 || y2 <= y1 || y2 >= h) error("cropx: wrong y parameters\n");
+  image *out = make_image(w1, h1);
+  for (i = 0; i <= h1; i++) {
+    s = im->data + (i + y1) * w + x1; 
+    t = out->data + i * w1;
+    memcpy(t, s, w1 * sizeof(*s));
+  }
+  return out;
+}
+
+int find_margin(vector *v, int w) {
+  real t, t1, n1;
+  real *p = v->data;
+  int i, j, a, b;
+  int l = v->len;
+  vector *v1;
+  if (w < 0 || w > l) error("find_margin: invalid width");
+  t = 0;
+  // -> logarithmic scale
+  for (i = 0; i < l; i++) {
+    p[i] = log(p[i] + 1);
+    t += p[i];
+  }
+  // threshold:
+  t /= l;
+  n1 = t1 = 0;
+  for (i = 0; i < l; i++) {
+    if (p[i] <= t) {n1++; t1 += p[i];}
+  }
+  t = (t + t1/n1) / 2;
+  // calc scores for margins
+  // (> l: forbidden)
+  j = 0;
+  for (i = 0; i < l; i++) {
+    if (p[i] > t) {j = 0; p[i] = l + 1;}
+    else {p[i] = ++ j;}
+  }
+  j = 0;
+  for (i = l - 1; i >=0; i--) {
+    if (p[i] > l) j = 0;
+    else {p[i] -= ++ j;}
+  }
+  t = -l;
+  for (i = 0; i + w + 1 < l; i++) {
+    a = p[i];
+    if (a > l) continue;
+    b = p[i + w + 1];
+    if (b > l) continue;
+    p[i] = a -= b;
+    if (a > t) {t = a; j = i;}
+  }
+  i = j; while (p[i] == t) i++;
+  return (j + i) / 2;
+}
+
+image *autocrop(image *im, int width, int height) {
+  int w = im->width;
+  int h = im->height;
+  vector *vx = make_vector(w); // x-histogram
+  vx->len = vx->size;
+  vector *vy = make_vector(h); // y-histogram
+  vy->len = vy->size;
+  int i, x1, x2, y1, y2;
+  short *p, *end;
+  real *px, *py, t, t1;
+  int k = (MAXVAL + 1) /2;
+
+  // calc vx
+  for (i = 0; i < h - 1; i++, py++) {
+    p = im->data + i * w;
+    end = p + w - 1;
+    px = vx->data;
+    for (; p < end; p++, px++) {
+      if (*p / k != *(p + w) / k) (*px)++;
+    }
+  }
+
+  x1 = find_margin(vx, width);
+  x2 = x1 + width - 1;
+
+  // calc vy
+  py = vy->data;
+  for (i = 0; i < h - 1; i++, py++) {
+    p = im->data + i * w + x1;
+    end = p + width - 1;
+    for (; p < end; p++, px++) {
+      if (*p / k != *(p + 1) / k) (*py)++;
+    }
+  }
+
+  y1 = find_margin(vy, height);
+  y2 = y1 + height - 1;
+
+  destroy_vector(vx);
+  destroy_vector(vy);
+
+  return crop(im, x1, y1, x2, y2);
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:

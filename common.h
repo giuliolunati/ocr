@@ -39,7 +39,7 @@ vector *make_vector(uint size);
 void destroy_vector(vector *h);
 vector *copy_vector(vector *v0);
 void cumul_vector(vector *v);
-void diff_vector(vector *v);
+void diff_vector(vector *v, uint d);
 void write_vector(vector *v, FILE *f);
 uint index_of_max(vector *v);
 real default_ex;
@@ -63,5 +63,7 @@ void sheary_image(image *im, real t);
 void skew(image* im, real angle);
 void mean_y(image *im, uint d);
 real detect_skew(image *im);
+image *crop(image *im, int x1, int y1, int x2, int y2);
+image *autocrop(image *im, int width, int height);
 
 // vim: sw=2 ts=2 sts=2 expandtab:

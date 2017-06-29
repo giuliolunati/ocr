@@ -4,6 +4,7 @@
 #define IS_IMAGE(p) (((image *)p)->type == 'I')
 #define IS_VECTOR(p) (((vector *)p)->type == 'V')
 
+
 void help(char **arg0, char *topic) {
 #define TOPIC(x) EQ((x), topic)
 if (! topic) {
@@ -98,7 +99,8 @@ int main(int argc, char **args) {
   vector *v;
   void *p;
   FILE *f;
-  real t;
+  real t, x, y;
+  int i, w, h;
 
   init_srgb();
   if (argc < 2) help(args, NULL);
@@ -112,10 +114,24 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("contrast")) { // BLACK WHITE
-      if (! *(++arg)) error("norm: missing parameter");
-      if (! *(++arg)) error("norm: missing parameter");
+      if (! *(++arg)) error("contrast: missing BLACK parameter");
+      if (! *(++arg)) error("contrast: missing WHITE parameter");
       contrast_image((image*)SP_1, atof(*(arg-1)), atof(*arg));
     }
+    if (ARG_IS("crop")) { // FLOAT FLOAT
+      im = (image*)SP_1;
+      if (! *(++arg)) error("crop: missing WIDTH");
+      x = atof(*arg);
+      if (x <= 0 || x >= im->width) error("crop: invalid WIDTH");
+      if (x < 1) x *= im->width;
+      if (! *(++arg)) error("crop: missing HEIGHT parameter");
+      y = atof(*arg);
+      if (y <= 0 || y >= im->height) error("crop: invalid HEIGHT");
+      if (y < 1) y *= im->height;
+      push(autocrop(im, x, y));
+      swap(); pop();
+    }
+    else
     if (ARG_IS("deskew")) {
       skew( (image*)SP_1, detect_skew((image*)SP_1) );
     }
@@ -212,6 +228,7 @@ int main(int argc, char **args) {
     if (IS_IMAGE(p)) write_image(p, f);
     else
     if (IS_VECTOR(p)) write_vector(p, f);
+    else assert(0);
   }
 }
 
