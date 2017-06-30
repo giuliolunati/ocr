@@ -130,6 +130,7 @@ image *make_image(int width, int height) {
   im->width = width;
   im->data = data;
   im->ex = default_ex;
+  im->pag = 0;
   im->type = 'I';
   return im;
 }
@@ -146,7 +147,6 @@ image *read_image(FILE *file, int layer) {
   uchar *buf, *ps;
   short *pt;
   char c;
-  if (! file) error("File not found.");
   if (1 > fscanf(file, "P%d ", &depth)) {
     error("Not a PNM file - wrong magic.");
   }
@@ -242,6 +242,7 @@ image *rotate_90_image(image *im, int angle) {
   int x, y, dx, dy;
   image *om = make_image(h, w);
   om->ex = im->ex;
+  om->pag = im->pag;
   short *i, *o;
   i = im->data; o = om->data;
   switch ((int)angle) {
@@ -295,6 +296,8 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
     memcpy(p1, p, w1 * sizeof(short));
     memcpy(p2, p + w1, w2 * sizeof(short));
   }
+  im1->pag = im->pag;
+  im2->pag = im->pag + 1;
   *out1 = im1;
   *out2 = im2;
 }
@@ -307,12 +310,16 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   ulong l1, l2; 
   uint h1 = im->height * y;
   uint h2 = im->height - h1;
-  *out1 = make_image(w, h1);
-  *out2 = make_image(w, h2);
+  image* im1 = make_image(w, h1);
+  image* im2 = make_image(w, h2);
   l1 = w * h1;
   l2 = w * h2;
-  memcpy(((image*)(*out1))->data, im->data, l1 * sizeof(short));
-  memcpy(((image*)(*out2))->data, im->data + l1, l2 * sizeof(short));
+  memcpy(im1->data, im->data, l1 * sizeof(short));
+  memcpy(im2->data, im->data + l1, l2 * sizeof(short));
+  im1->pag = im->pag;
+  im2->pag = im->pag + 1;
+  *out1 = im1;
+  *out2 = im2;
 }
 
 image *image_background(image *im) {
@@ -743,6 +750,8 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   if (x1 < 0 || x2 <= x1 || x2 >= w) error("cropx: wrong x parameters\n");
   if (y1 < 0 || y2 <= y1 || y2 >= h) error("cropx: wrong y parameters\n");
   image *out = make_image(w1, h1);
+  out->ex = im->ex;
+  out->pag = im->pag;
   for (i = 0; i <= h1; i++) {
     s = im->data + (i + y1) * w + x1; 
     t = out->data + i * w1;

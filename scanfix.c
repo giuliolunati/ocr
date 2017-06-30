@@ -4,6 +4,17 @@
 #define IS_IMAGE(p) (((image *)p)->type == 'I')
 #define IS_VECTOR(p) (((vector *)p)->type == 'V')
 
+int get_page_number(char *s) {
+  int n;
+  for (n = 0; *s; s++) {
+    if ('.' == *s && n) break; 
+    if ('0' <= *s && *s <= '9') {
+      n = n * 10 + (*s - '0');
+    }
+    else n = 0;
+  }
+  return n;
+}
 
 void help(char **arg0, char *topic) {
 #define TOPIC(x) EQ((x), topic)
@@ -169,6 +180,11 @@ int main(int argc, char **args) {
       normalize_image((image*)SP_1, atof(*arg));
     }
     else
+    if (ARG_IS("pag")) { // INT
+      if (! *(++arg)) error("pag: missing parameter");
+      ((image*)SP_1)->pag = atoi(*arg);
+    }
+    else
     if (ARG_IS("quit")) exit(0);
     else
     if (ARG_IS("rot")) { // +-90, 180, 270
@@ -207,10 +223,20 @@ int main(int argc, char **args) {
     if (ARG_IS("w")) { // FILENAME
       if (! *(++arg)) error("w: missing parameter");
       p = pop();
-      f = fopen(*arg, "wb");
-      if (IS_IMAGE(p)) write_image(p, f);
+      if (IS_IMAGE(p)) {
+        im = p;
+        i = strlen(*arg);
+        if (i < sprintf(*arg, *arg, im->pag)) {
+          error1("page number too long:", *arg);
+        }
+        f = fopen(*arg, "wb");
+        write_image(p, f);
+      }
       else
-      if (IS_VECTOR(p)) write_vector(p, f);
+      if (IS_VECTOR(p)) {
+        f = fopen(*arg, "wb");
+        write_vector(p, f);
+      }
     }
     else
     if (ARG_IS("-")) {
@@ -218,7 +244,12 @@ int main(int argc, char **args) {
     }
     else
     if (strchr(*arg, '.')) { // FILENAME.EXT
-      push(read_image(fopen(*arg, "rb"), 0));
+      i = get_page_number(*arg);
+      f = fopen(*arg, "rb");
+      if (! f) error1("File not found:", *arg);
+      im = read_image(f, 0);
+      im->pag = i;
+      push(im);
     }
     else error1("Command not found:", *arg);
   }

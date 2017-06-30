@@ -14,7 +14,7 @@
 #define MAXVAL 4095 // 256 * K - 1
 #define MAXSHORT 32767
 
-typedef struct {
+typedef struct { // vector
   char type;
   real *data;
   uint len;
@@ -23,12 +23,13 @@ typedef struct {
   real dx;
 } vector;
 
-typedef struct {
+typedef struct { // image
   char type;
   short *data;
   uint width;
   uint height;
   real ex; // height of x in pixels
+  uint pag;
 } image;
 
 void error(const char *msg);
