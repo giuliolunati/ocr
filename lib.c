@@ -849,4 +849,27 @@ image *autocrop(image *im, int width, int height) {
   return crop(im, x1, y1, x2, y2);
 }
 
+void draw_grid(image *im, int step) {
+  int sbig = step * 10;
+  int step4 = step / 4;
+  int step2 = step / 2;
+  int w = im->width;
+  int h = im->height;
+  int x, y;
+  short *p;
+
+  for (y = 0; y < h; y++) {
+    p = im->data + y * w;
+    for(x = 0; x < w; x++, p++) {
+      if (
+        y % sbig == 0 ||
+        x % sbig == 0 ||
+        (x % step == 0 && (y + step4) % step < step2) ||
+        (y % step == 0 && (x + step4) % step < step2)
+      ) *p = 0;
+
+    }
+  }
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:

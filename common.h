@@ -66,5 +66,6 @@ void mean_y(image *im, uint d);
 real detect_skew(image *im);
 image *crop(image *im, int x1, int y1, int x2, int y2);
 image *autocrop(image *im, int width, int height);
+void draw_grid(image *im, int step);
 
 // vim: sw=2 ts=2 sts=2 expandtab:

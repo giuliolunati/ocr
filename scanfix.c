@@ -152,6 +152,12 @@ int main(int argc, char **args) {
       pop();
     }
     else
+    if (ARG_IS("grid")) {
+      if (! *(++arg)) error("grid: missing STEP");
+      im = (image*)SP_1;
+      draw_grid(im, atof(*arg));
+    }
+    else
     if (ARG_IS("ex")) { // FLOAT
       if (! *(++arg)) error("ex: missing parameter");
       t = atof(*arg);
