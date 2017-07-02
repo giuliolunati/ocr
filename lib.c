@@ -556,6 +556,7 @@ void normalize_image(image *im, real strength) {
 
 void shearx_image(image *im, real t) {
   // t = tan(angle * M_PI / 180);
+  assert(fabs(t) <= 1);
   uint h = im->height;
   uint w = im->width;
   uint y;
@@ -591,6 +592,7 @@ void shearx_image(image *im, real t) {
 
 void sheary_image(image *im, real t) {
   // t = tan(angle * M_PI / 180);
+  assert(fabs(t) <= 1);
   uint w = im->width;
   uint h = im->height;
   short *p, *end;
@@ -696,6 +698,7 @@ real detect_skew(image *im) {
   uint h = im->height;
   // create test image
   d = im->ex;
+  if (d <= 0) error("detect_skew: im->ex <= 0");
   w1 = floor(w / d);
   image *test = make_image(w1, h);
   real dx, dy, n, t;
@@ -736,6 +739,7 @@ real detect_skew(image *im) {
       else {t += dx; n -= dy;}
     }
   }
+  if (n == 0) error("detect_skew: can't detect skew :-(\n"); //)
   t /= n * d;
   return atan(t) * 180 / M_PI;
 }
