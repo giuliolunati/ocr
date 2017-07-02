@@ -457,11 +457,17 @@ void contrast_image(image *im, real black, real white) {
 }
 
 void normalize_image(image *im, real strength) {
-  uint i, j;
-  vector *v0 = histogram_of_image(im);
-  vector *v1 = copy_vector(v0);
-  real w, b, max0, max1, *p = v1->data;
   uint c, c1;
+  uint i, j;
+  uint x1, x2;
+  real w, b, max0, max1, *p;
+  real y1, y2, m, q, mb, qb, mw, qw, yb, yw;
+
+  vector *v0 = histogram_of_image(im);
+  p = v0->data;
+  //for (i = 0; i < v0->len; i++, p++) *p = log(*p + 1);
+  vector *v1 = copy_vector(v0);
+  p = v1->data;
   for (i = 0; i < v1->len; i++, p++) *p *= i;
   cumul_vector(v0);
   cumul_vector(v1);
@@ -477,8 +483,6 @@ void normalize_image(image *im, real strength) {
   }
   //printf("%f %f\n", b, w);
 
-  uint x1, x2;
-  real y1, y2, m, q, mb, qb, mw, qw, yb, yw;
   for (j = 0; j < 9; j++) {
     // gray zone
     x1 = (3*b + w) / 4;
@@ -502,10 +506,9 @@ void normalize_image(image *im, real strength) {
       if (v0->data[i] < y2) continue;
       break;
     }
-    y1 = v0->data[x1];
-    y2 = v0->data[x2];
-    mb = (y2 - y1) / (x2 - x1);
-    qb = (y1 - mb * x1);
+    // x = mb y + qb
+    mb = (x2 - x1) / (y2 - y1);
+    qb = (x1 - mb * y1);
 
     // white zone
     yw = m * w + q;
@@ -521,13 +524,21 @@ void normalize_image(image *im, real strength) {
       if (v0->data[i] >= y1) continue;
       break;
     }
-    y1 = v0->data[x1];
-    y2 = v0->data[x2];
-    mw = (y2 - y1) / (x2 - x1);
-    qw = (y2 - mw * x2) ;
+    // x = mb y + qb
+    mw = (x2 - x1) / (y2 - y1);
+    qw = (x2 - mw * y2) ;
 
-    y1 = (q - qb) / (mb - m);
-    y2 = (q - qw) / (mw - m);
+    if (1 <= mb * m) y1 = 0;
+    else
+    y1 = (mb * q + qb) / (1 - mb * m);
+    yb = y1 * m + q;
+    if (y1 < 0 || y1 > 255 || yb < 0 || yb > max0) y1 = 0;
+
+    if (1 <= mw * m) y2 = 255;
+    else
+    y2 = (mw * q + qw) / (1 - mw * m);
+    yw = y1 * m + q;
+    if (y2 < 0 || y2 > 255 || yw < 0 || yw > max0) y2 = 255;
 
     if (hypot(y1-b, y2-w) < 0.1) break;
     b = y1; w = y2;
@@ -548,7 +559,7 @@ void normalize_image(image *im, real strength) {
     w = b + 1;
   }
 
-  contrast_image(im, b, w);
+  contrast_image(im, b / 255, w / 255);
 
   destroy_vector(v0);
   destroy_vector(v1);
