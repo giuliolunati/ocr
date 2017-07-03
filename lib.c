@@ -437,12 +437,20 @@ vector *threshold_histogram(image *im) {
 void contrast_image(image *im, real black, real white) {
   vector *v = make_vector(256);
   v->len = v->size;
-  real m = 255.0 * K / (white - black);
-  real q = K_2 - black * m;
+  real m = (white - black) / K;
+  black *= 255;
+  white *= 255;
   real t;
   uint i;
-  for (i = 0; i < v->len; i++) {
-    t = m * i + q;
+  if (white >= black) for (i = 0; i < v->len; i++) {
+    if (i <= black) t = 0;
+    else
+    if (i >= white) t = MAXVAL;
+    else t = (i - black) / m;
+    v->data[i] = t;
+  }
+  else for (i = 0; i < v->len; i++) {
+    t = (i - black) / m;
     if (t < 0) t = 0;
     else
     if (t > MAXVAL) t = MAXVAL;

@@ -129,6 +129,7 @@ int main(int argc, char **args) {
       if (! *(++arg)) error("contrast: missing WHITE parameter");
       contrast_image((image*)SP_1, atof(*(arg-1)), atof(*arg));
     }
+    else
     if (ARG_IS("crop")) { // FLOAT FLOAT
       im = (image*)SP_1;
       if (! *(++arg)) error("crop: missing WIDTH");
