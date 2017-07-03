@@ -221,10 +221,15 @@ int main(int argc, char **args) {
       pop();
     }
     else
-    if (ARG_IS("thr")) {
-      v = threshold_histogram((image*)SP_1);
-      push(v);
-      printf("thr: %d\n", index_of_max(v));
+    if (ARG_IS("thr")) { // auto | FLOAT
+      if (! *(++arg)) error("thr: missing parameter");
+      if (ARG_IS("auto")) {
+        v = threshold_histogram((image*)SP_1);
+        x = index_of_max(v) / 255.0;
+        destroy_vector(v);
+      }
+      else x = atof(*arg);
+      contrast_image(SP_1, x, x);
     }
     else
     if (ARG_IS("w")) { // FILENAME
