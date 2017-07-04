@@ -4,6 +4,38 @@
 #define IS_IMAGE(p) (((image *)p)->type == 'I')
 #define IS_VECTOR(p) (((vector *)p)->type == 'V')
 
+void help(char **arg0, char *topic) {
+#define TOPIC(x) EQ((x), topic)
+if (! topic) {
+  printf("\nUSAGE: %s COMMANDS...\n\n", *arg0);
+  printf("COMMANDS:\n\
++ FILENAME.EXT: ------------ load a PNM image\n\
++ -: ------------------------ load from STDIN\n\
+- bg: ----------------------- find background\n\
+- contrast BLACK WHITE: ---- enhance contrast\n\
++ crop WIDTH HEIGHT: ------------------- crop\n\
+- deskew: ---------------------- deskew image\n\
+- div: --------------------- divide im2 / im1\n\
+- ex HEIGHT: ----------- set lowercase height\n\
+- fix-bg: -------------------- fix background\n\
+- grid STEP: ----------- draw grid over image\n\
+- histo: -------------------------- histogram\n\
+- norm STRENGTH: --------- normalize contrast\n\
+- pag NUM: ------------------ set page number\n\
+- quit: ------------------- quit w/out output\n\
++ rot ANGLE: ----- rotate (only +-90 180 270)\n\
+- skew ANGLE: ----------- rotate (-45 ... 45)\n\
++ splitx {X | N}: ---------- split vertically\n\
++ splity {Y | N}: -------- split horizontally\n\
+- bin {auto | THRESHOLD} ------to black&white\n\
++ w FILENAME: ----------------- write to file\n\
+- -h, --help: ------------------ this summary\n\
+- -h, --help COMMAND: ------- help on COMMAND\n\
+  \n");
+} else printf("No help for %s.\n", topic);
+exit(0);
+}
+
 int get_page_number(char *s) {
   int n;
   for (n = 0; *s; s++) {
@@ -14,64 +46,6 @@ int get_page_number(char *s) {
     else n = 0;
   }
   return n;
-}
-
-void help(char **arg0, char *topic) {
-#define TOPIC(x) EQ((x), topic)
-if (! topic) {
-  printf("\nUSAGE: %s COMMANDS...\n\n", *arg0);
-  printf("COMMANDS:\n\
-  FILENAME:       load a PNM image\n\
-  -:              load from STDIN\n\
-  bg FLOAT:       find background light\n\
-  contrast BLACK WHITE:\n\
-                  enhance contrast\n\
-  deskew:         deskew image\n\
-  div:            divide im2 / im1\n\
-  fix-bg:         fix background light\n\
-  histo:          histogram\n\
-  ex FLOAT:       set height-of-x\n\
-  norm STRENGTH:  normalize contrast\n\
-  quit:           quit w/out output\n\
-  rot ANGLE:      rotate (only +-90 180 270)\n\
-  skew ANGLE:     rotate (-45 ... 45)\n\
-  splitx X:       split vertically\n\
-  splity Y:       split horizontally\n\
-  w FILENAME:     write to file\n\
-  -h, --help:     this summary\n\
-  \n\
-  -h, --help COMMAND: help on COMMAND\n\
-  \n");
-} else if (TOPIC("bg")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("contrast")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("deskew")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("div")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("fix-bg")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("histo")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("ex")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("norm")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("quit")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("rot")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("skew")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("splitx")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("splity")) {
-  printf("Coming soon...\n");
-} else if (TOPIC("w")) {
-  printf("Coming soon...\n");
-} else printf("Unknown topic %s.\n", topic);
-exit(0);
 }
 
 //// STACK ////
@@ -160,11 +134,6 @@ int main(int argc, char **args) {
       pop();
     }
     else
-    if (ARG_IS("grid")) {
-      if (! *(++arg)) error("grid: missing STEP");
-      draw_grid(im(1), atof(*arg));
-    }
-    else
     if (ARG_IS("ex")) { // FLOAT
       if (! *(++arg)) error("ex: missing parameter");
       t = atof(*arg);
@@ -182,6 +151,11 @@ int main(int argc, char **args) {
       push(image_background(img));
       divide_image(im(2), img);
       pop();
+    }
+    else
+    if (ARG_IS("grid")) {
+      if (! *(++arg)) error("grid: missing STEP");
+      draw_grid(im(1), atof(*arg));
     }
     else
     if (ARG_IS("histo")) {
@@ -230,8 +204,8 @@ int main(int argc, char **args) {
       pop();
     }
     else
-    if (ARG_IS("thr")) { // auto | FLOAT
-      if (! *(++arg)) error("thr: missing parameter");
+    if (ARG_IS("bin")) { // auto | FLOAT
+      if (! *(++arg)) error("bin: missing parameter");
       if (ARG_IS("auto")) {
         v = threshold_histogram(im(1));
         x = index_of_max(v) / 255.0;
