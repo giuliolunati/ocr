@@ -465,112 +465,55 @@ void contrast_image(image *im, real black, real white) {
 }
 
 void normalize_image(image *im, real strength) {
-  uint c, c1;
-  uint i, j;
-  uint x1, x2;
-  real w, b, max0, max1, *p;
-  real y1, y2, m, q, mb, qb, mw, qw, yb, yw;
-
-  vector *v0 = histogram_of_image(im);
-  p = v0->data;
-  //for (i = 0; i < v0->len; i++, p++) *p = log(*p + 1);
-  vector *v1 = copy_vector(v0);
-  p = v1->data;
-  for (i = 0; i < v1->len; i++, p++) *p *= i;
-  cumul_vector(v0);
-  cumul_vector(v1);
-  max0 = v0->data[255];
-  max1 = v1->data[255];
-  c = max1 / max0;
-  for (i = 0; i < 100; i++) {
-    b = v1->data[c] / v0->data[c];
-    w = (max1 - v1->data[c]) / (max0 -v0->data[c]);
-    c1 = (b + w + 1) / 2;
-    if (c1 == c) break;
-    c = c1;
+  vector *d, *v = histogram_of_image(im);
+  real *p = v->data;
+  int i, b, w;
+  for (i = 0; i < v->len; i++, p++) {
+    *p = log(1 + *p);
   }
-  //printf("%f %f\n", b, w);
-
-  for (j = 0; j < 9; j++) {
-    // gray zone
-    x1 = (3*b + w) / 4;
-    x2 = (b + 3*w) / 4;
-    y1 = v0->data[x1];
-    y2 = v0->data[x2];
-    m = (y2 - y1) / (x2 - x1);
-    q = (y1 - m * x1) ;
-
-    // black zone
-    yb = m * b + q;
-    y1 = yb * 0.25;
-    y2 = yb * 0.75;
-    for (i = 0; i < 256; i++) {
-      x1 = i;
-      if (v0->data[i] <= y1) continue;
-      break;
-    }
-    for (i = x1; i < 256; i++) {
-      x2 = i;
-      if (v0->data[i] < y2) continue;
-      break;
-    }
-    // x = mb y + qb
-    mb = (x2 - x1) / (y2 - y1);
-    qb = (x1 - mb * y1);
-
-    // white zone
-    yw = m * w + q;
-    y1 = (3*yw + max0) / 4;
-    y2 = (yw + 3*max0) / 4;
-    for (i = 255; i >= 0 ; i--) {
-      x2 = i;
-      if (v0->data[i] >= y2) continue;
-      break;
-    }
-    for (i = x2; i >=0; i--) {
-      x1 = i;
-      if (v0->data[i] >= y1) continue;
-      break;
-    }
-    // x = mb y + qb
-    mw = (x2 - x1) / (y2 - y1);
-    qw = (x2 - mw * y2) ;
-
-    if (1 <= mb * m) y1 = 0;
-    else
-    y1 = (mb * q + qb) / (1 - mb * m);
-    yb = y1 * m + q;
-    if (y1 < 0 || y1 > 255 || yb < 0 || yb > max0) y1 = 0;
-
-    if (1 <= mw * m) y2 = 255;
-    else
-    y2 = (mw * q + qw) / (1 - mw * m);
-    yw = y1 * m + q;
-    if (y2 < 0 || y2 > 255 || yw < 0 || yw > max0) y2 = 255;
-
-    if (hypot(y1-b, y2-w) < 0.1) break;
-    b = y1; w = y2;
-
-    //printf("b: %f w: %f \n", b, w);
+  d = copy_vector(v);
+  cumul_vector(d);
+  diff_vector(d, 10);
+  diff_vector(d, 14);
+  p = d->data;
+  for (i = 12; i < d->len; i++) {
+    if (p[i] > 0) break;
   }
-
-  // black zone: [x1..b]
-  // white zone: [w..x2]
-  x1 = - qb / mb;
-  x2 = (max0 - qw) / mw;
-  c = (b + w + x1 + x2) / 4;
-  // choose black and white
-  b += (x1 - b) * (1 - strength);
-  w += (x2 - w) * (1 - strength);
-  if (w <= b) {
-    b = c;
-    w = b + 1;
+  for (; i < d->len; i++) {
+    if (p[i] < 0) break;
   }
+  b = i - 13;
+  for (i = d->len - 1; i >= 0; i--) {
+    if (p[i] < 0) break;
+  }
+  for (; i >= 0; i--) {
+    if (p[i] > 0) break;
+  }
+  w = i - 11;
+  destroy_vector(d);
+  d = copy_vector(v);
+  p = d->data;
+  for (i = 0; i < d->len; i++) {
+    p[i] *= i;
+  }
+  cumul_vector(d);
+  cumul_vector(v);
+  i = (p[255] - p[w])
+    / (v->data[255] - v->data[w]);
+  i = 1.46 * (w - i) * strength;
+  // 1.46 =~ sqrt(2/15) * 4
+  // = sqrt(int(0, 1, (1-x^2)*x^2))
+  //   / int(0, 1, (1-x^2)*x)
+  w = w + i;
+  i = (p[0] - p[b])
+    / (v->data[0] - v->data[b]);
+  i = 1.46 * (i - b) * strength;
+  b = b - i;
+  //fprintf(stderr, "b: %d w: %d\n", b, w);
 
-  contrast_image(im, b / 255, w / 255);
-
-  destroy_vector(v0);
-  destroy_vector(v1);
+  contrast_image(im, b/255.0, w/255.0);
+  destroy_vector(v);
+  destroy_vector(d);
 }
 
 void shearx_image(image *im, real t) {
