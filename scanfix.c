@@ -11,9 +11,11 @@ if (! topic) {
   printf("COMMANDS:\n\
 + FILENAME.EXT: ------------ load a PNM image\n\
 + -: ------------------------ load from STDIN\n\
++ autocrop WIDTH HEIGHT: ----------- autocrop\n\
 - bg: ----------------------- find background\n\
 - contrast BLACK WHITE: ---- enhance contrast\n\
-+ crop WIDTH HEIGHT: ------------------- crop\n\
++ cropx LEFT RIGHT: ------- crop horizontally\n\
++ cropy TOP BOTTOM: --------- crop vertically\n\
 - deskew: ---------------------- deskew image\n\
 - div: --------------------- divide im2 / im1\n\
 - ex HEIGHT: ----------- set lowercase height\n\
@@ -101,6 +103,20 @@ int main(int argc, char **args) {
       help(args, *(++arg));
     }
     else
+    if (ARG_IS("autocrop")) { // FLOAT FLOAT
+      img = im(1);
+      if (! *(++arg)) error("autocrop: missing WIDTH parameter");
+      x = atof(*arg);
+      if (x <= 1) x *= img->width;
+      if (x <= 0 || x > img->width) error("autocrop: invalid WIDTH parameter");
+      if (! *(++arg)) error("autocrop: missing HEIGHT parameter");
+      y = atof(*arg);
+      if (y <= 1) y *= img->height;
+      if (y <= 0 || y > img->height) error("autocrop: invalid HEIGHT parameter");
+      push(autocrop(img, x, y));
+      swap(); pop();
+    }
+    else
     if (ARG_IS("bg")) { // FLOAT
       push(image_background(im(1)));
     }
@@ -111,17 +127,31 @@ int main(int argc, char **args) {
       contrast_image(im(1), atof(*(arg-1)), atof(*arg));
     }
     else
-    if (ARG_IS("crop")) { // FLOAT FLOAT
+    if (ARG_IS("cropx")) { // FLOAT FLOAT
       img = im(1);
-      if (! *(++arg)) error("crop: missing WIDTH");
+      if (! *(++arg)) error("cropx: missing LEFT parameter");
       x = atof(*arg);
-      if (x <= 0 || x >= img->width) error("crop: invalid WIDTH");
-      if (x < 1) x *= img->width;
-      if (! *(++arg)) error("crop: missing HEIGHT parameter");
+      if (x <= 1) x *= img->width;
+      if (x < 0 || x >= img->width) error("cropx: invalid LEFT parameter");
+      if (! *(++arg)) error("cropx: missing RIGHT parameter");
       y = atof(*arg);
-      if (y <= 0 || y >= img->height) error("crop: invalid HEIGHT");
-      if (y < 1) y *= img->height;
-      push(autocrop(img, x, y));
+      if (y <= 1) y *= img->width;
+      if (y <= x || y > img->width) error("cropx: invalid RIGHT parameter");
+      push(crop(img, x, 0, y, img->height));
+      swap(); pop();
+    }
+    else
+    if (ARG_IS("cropy")) { // FLOAT FLOAT
+      img = im(1);
+      if (! *(++arg)) error("cropy: missing TOP parameter");
+      x = atof(*arg);
+      if (x <= 1) x *= img->height;
+      if (x < 0 || x >= img->height) error("cropy: invalid TOP parameter");
+      if (! *(++arg)) error("cropy: missing BOTTOM parameter");
+      y = atof(*arg);
+      if (y <= 1) y *= img->height;
+      if (y <= x || y > img->height) error("cropx: invalid BOTTOM parameter");
+      push(crop(img, 0, x, img->width, y));
       swap(); pop();
     }
     else
@@ -155,7 +185,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("grid")) {
-      if (! *(++arg)) error("grid: missing STEP");
+      if (! *(++arg)) error("grid: missing STEP parameter");
       draw_grid(im(1), atof(*arg));
     }
     else

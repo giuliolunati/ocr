@@ -193,6 +193,8 @@ image *read_image(FILE *file, int layer) {
     ps = buf + layer;
     for (x = 0; x < width; x++, pt++, ps += depth) {
       *pt = *ps * K + K_2;
+      //assert (*pt >= 0);
+      //assert (*pt <= MAXVAL);
     }
   }
   free(buf);
@@ -459,6 +461,7 @@ void contrast_image(image *im, real black, real white) {
   ulong l = im->width * im->height;
   short *p;
   for (p = im->data; p < im->data + l; p++) {
+    //assert (*p >= 0);
     *p = v->data[*p / K];
   }
   destroy_vector(v);
@@ -707,18 +710,20 @@ real detect_skew(image *im) {
 }
 
 image *crop(image *im, int x1, int y1, int x2, int y2) {
+  // 0 <= x1 < x2 <= im->width  
+  // 0 <= y1 < y2 <= im->height  
   int w = im->width;
   int h = im->height;
-  int w1 = x2 - x1 + 1;
-  int h1 = y2 - y1 + 1;
+  int w1 = x2 - x1;
+  int h1 = y2 - y1;
   int i;
   short *s, *t;
-  if (x1 < 0 || x2 <= x1 || x2 >= w) error("cropx: wrong x parameters\n");
-  if (y1 < 0 || y2 <= y1 || y2 >= h) error("cropx: wrong y parameters\n");
+  if (x1 < 0 || x2 <= x1 || x2 > w) error("crop: wrong x parameters\n");
+  if (y1 < 0 || y2 <= y1 || y2 > h) error("crop: wrong y parameters\n");
   image *out = make_image(w1, h1);
   out->ex = im->ex;
   out->pag = im->pag;
-  for (i = 0; i <= h1; i++) {
+  for (i = 0; i < h1; i++) {
     s = im->data + (i + y1) * w + x1; 
     t = out->data + i * w1;
     memcpy(t, s, w1 * sizeof(*s));
