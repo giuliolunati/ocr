@@ -86,6 +86,7 @@ image *im(int i) {
 int main(int argc, char **args) {
   #define ARG_IS(x) EQ((x), *arg)
   char **arg = args;
+  char buf[256];
   image *img;
   vector *v;
   void *p;
@@ -220,11 +221,11 @@ int main(int argc, char **args) {
       p = pop();
       if (IS_IMAGE(p)) {
         img = p;
-        i = strlen(*arg);
-        if (i < sprintf(*arg, *arg, img->pag)) {
-          error1("page number too long:", *arg);
+        if (strlen(*arg) > 200) {
+          error1("page name too long:", *arg);
         }
-        f = fopen(*arg, "wb");
+        sprintf(buf, *arg, img->pag);
+        f = fopen(buf, "wb");
         write_image(p, f);
       }
       else
