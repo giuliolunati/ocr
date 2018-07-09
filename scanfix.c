@@ -102,6 +102,7 @@ int main(int argc, char **args) {
     if (ARG_IS("-h") || ARG_IS("--help")) {
       help(args, *(++arg));
     }
+    if (ARG_IS("all"));
     else
     if (ARG_IS("autocrop")) { // FLOAT FLOAT
       img = im(1);
@@ -165,6 +166,14 @@ int main(int argc, char **args) {
       pop();
     }
     else
+    if (ARG_IS("even")) {
+      if (! *(++arg)) error("even: missing args");
+      if (1 == img->pag % 2) { // odd
+        while (*arg && ! ARG_IS("odd") && ! ARG_IS("all")) arg++;
+      }
+      arg--;
+    }
+    else
     if (ARG_IS("ex")) { // FLOAT
       if (! *(++arg)) error("ex: missing parameter");
       t = atof(*arg);
@@ -197,6 +206,14 @@ int main(int argc, char **args) {
     if (ARG_IS("norm")) { // FLOAT
       if (! *(++arg)) error("norm: missing parameter");
       normalize_image(im(1), atof(*arg));
+    }
+    else
+    if (ARG_IS("odd")) {
+      if (! *(++arg)) error("odd: missing args");
+      if (0 == img->pag % 2) { // even
+        while (*arg && ! ARG_IS("even") && ! ARG_IS("all")) arg++;
+      }
+      arg--;
     }
     else
     if (ARG_IS("pag")) { // INT
