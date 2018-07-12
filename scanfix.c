@@ -194,8 +194,13 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("grid")) {
+      img = im(1);
       if (! *(++arg)) error("grid: missing STEP parameter");
-      draw_grid(im(1), atof(*arg));
+      x = atof(*arg);
+      y = x;
+      if (x <= 1) x *= img->width;
+      if (y <= 1) y *= img->height;
+      draw_grid(im(1), x, y);
     }
     else
     if (ARG_IS("histo")) {

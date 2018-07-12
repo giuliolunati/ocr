@@ -820,10 +820,13 @@ image *autocrop(image *im, int width, int height) {
   return crop(im, x1, y1, x2, y2);
 }
 
-void draw_grid(image *im, int step) {
-  int sbig = step * 10;
-  int step4 = step / 4;
-  int step2 = step / 2;
+void draw_grid(image *im, int stepx, int stepy) {
+  int sbigx = stepx * 10;
+  int step4x = stepx / 4;
+  int step2x = stepx / 2;
+  int sbigy = stepy * 10;
+  int step4y = stepy / 4;
+  int step2y = stepy / 2;
   int w = im->width;
   int h = im->height;
   int x, y;
@@ -833,10 +836,10 @@ void draw_grid(image *im, int step) {
     p = im->data + y * w;
     for(x = 0; x < w; x++, p++) {
       if (
-        y % sbig == 0 ||
-        x % sbig == 0 ||
-        (x % step == 0 && (y + step4) % step < step2) ||
-        (y % step == 0 && (x + step4) % step < step2)
+        y % sbigy == 0 ||
+        x % sbigx == 0 ||
+        (x % stepx == 0 && (y + step4y) % stepy < step2y) ||
+        (y % stepy == 0 && (x + step4x) % stepx < step2x)
       ) *p = 0;
 
     }
