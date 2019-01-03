@@ -846,4 +846,55 @@ void draw_grid(image *im, int stepx, int stepy) {
   }
 }
 
+image *double_size(image *im, real k /*hardness*/) {
+  int w = im->width, h = im->height;
+  int x, y, dx, dy;
+  image *om = make_image(2 * w, 2 * h);
+  om->ex = 2 * im->ex;
+  om->pag = im->pag;
+  short *i1, *i2, *i3, *i4, *o;
+  real v;
+  real a = 9.0/16, b = 3.0/16, c = 1.0/16; 
+  real a1 = 8.0/15, b1 = 2.0/15, c1 = 3.0/15; 
+  a = a * (1 - k) + a1 * k;
+  b = b * (1 - k) + b1 * k;
+  c = c * (1 - k) + c1 * k;
+
+  for (y = 0; y < h; y++) {
+    i4 = i3 = im->data + (w * y);
+    if (y == 0) {i1 = i3; i2 = i4;}
+    else {i1 = i3 - w; i2 = i4 - w;}
+    o = om->data + (4 * w * y);
+    for (x = 0; x < w; x++) {
+      v = a * *i4
+        + b * (*i3 + *i2)
+        + c * *i1 ;
+      *o = v; o++;
+      if (x > 0) {i1++; i3++;}
+      if (x < w - 1) {i2++; i4++;}
+      v = a * *i3
+        + b * (*i4 + *i1)
+        + c * *i2 ;
+      *o = v; o++;
+    }
+    i1 = i2 = im->data + (w * y);
+    if (y == h - 1) {i3 = i1; i4 = i2;}
+    else {i3 = i1 + w; i4 = i2 + w;}
+    o = om->data + (4 * w * y) + (2 * w);
+    for (x = 0; x < w; x++) {
+      v = a * *i2
+        + b * (*i1 + *i4)
+        + c * *i3 ;
+      *o = v; o++;
+      if (x > 0) {i1++; i3++;}
+      if (x < w - 1) {i2++; i4++;}
+      v = a * *i1
+        + b * (*i2 + *i3)
+        + c * *i4 ;
+      *o = v; o++;
+    }
+  }
+  return om;
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:

@@ -13,11 +13,13 @@ if (! topic) {
 + -: ------------------------ load from STDIN\n\
 + autocrop WIDTH HEIGHT: ----------- autocrop\n\
 - bg: ----------------------- find background\n\
+- bin {auto | THRESHOLD} ------to black&white\n\
 - contrast BLACK WHITE: ---- enhance contrast\n\
 + cropx LEFT RIGHT: ------- crop horizontally\n\
 + cropy TOP BOTTOM: --------- crop vertically\n\
 - deskew: ---------------------- deskew image\n\
 - div: --------------------- divide im2 / im1\n\
+- double: -------------------- double up size\n\
 - ex HEIGHT: ----------- set lowercase height\n\
 - fix-bg: -------------------- fix background\n\
 - grid STEP: ----------- draw grid over image\n\
@@ -29,7 +31,6 @@ if (! topic) {
 - skew ANGLE: ----------- rotate (-45 ... 45)\n\
 + splitx {X | N}: ---------- split vertically\n\
 + splity {Y | N}: -------- split horizontally\n\
-- bin {auto | THRESHOLD} ------to black&white\n\
 + w FILENAME: ----------------- write to file\n\
 - -h, --help: ------------------ this summary\n\
 - -h, --help COMMAND: ------- help on COMMAND\n\
@@ -122,6 +123,17 @@ int main(int argc, char **args) {
       push(image_background(im(1)));
     }
     else
+    if (ARG_IS("bin")) { // auto | FLOAT
+      if (! *(++arg)) error("bin: missing parameter");
+      if (ARG_IS("auto")) {
+        v = threshold_histogram(im(1));
+        x = index_of_max(v) / 255.0;
+        destroy_vector(v);
+      }
+      else x = atof(*arg);
+      contrast_image(im(1), x, x);
+    }
+    else
     if (ARG_IS("contrast")) { // BLACK WHITE
       if (! *(++arg)) error("contrast: missing BLACK parameter");
       if (! *(++arg)) error("contrast: missing WHITE parameter");
@@ -166,6 +178,13 @@ int main(int argc, char **args) {
       pop();
     }
     else
+    if (ARG_IS("double")) { // FLOAT
+      if (! *(++arg)) error("double: missing HARDNESS parameter");
+      x = atof(*arg);
+      push(double_size(im(1), x));
+      swap(); pop();
+    }
+    else
     if (ARG_IS("even")) {
       if (! *(++arg)) error("even: missing args");
       if (1 == img->pag % 2) { // odd
@@ -204,7 +223,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("histo")) {
-      v = histogram_of_image(im(2));
+      v = histogram_of_image(im(1));
       push(v);
     }
     else
@@ -255,17 +274,6 @@ int main(int argc, char **args) {
       push(0); swap();
       splity_image(&SP2, &SP3, img, atof(*arg));
       pop();
-    }
-    else
-    if (ARG_IS("bin")) { // auto | FLOAT
-      if (! *(++arg)) error("bin: missing parameter");
-      if (ARG_IS("auto")) {
-        v = threshold_histogram(im(1));
-        x = index_of_max(v) / 255.0;
-        destroy_vector(v);
-      }
-      else x = atof(*arg);
-      contrast_image(im(1), x, x);
     }
     else
     if (ARG_IS("w")) { // FILENAME
