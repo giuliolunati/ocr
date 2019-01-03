@@ -897,4 +897,17 @@ image *double_size(image *im, real k /*hardness*/) {
   return om;
 }
 
+void darker_image(image *a, image *b) {
+  int h = a->height;
+  int w = a->width;
+  int i;
+  short *pa, *pb;
+  if (b->height != h || b->width != w) error("Dimensions mismatch.");
+  pa = a->data; pb = b->data;
+  for (i = 0; i < w * h; i++) {
+    if (*pa > *pb) { *pa = *pb; };
+    pa++; pb++;
+  }
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:

@@ -17,6 +17,7 @@ if (! topic) {
 - contrast BLACK WHITE: ---- enhance contrast\n\
 + cropx LEFT RIGHT: ------- crop horizontally\n\
 + cropy TOP BOTTOM: --------- crop vertically\n\
+- darker FILENAMES...: -- darker of all pixel\n\
 - deskew: ---------------------- deskew image\n\
 - div: --------------------- divide im2 / im1\n\
 - double: -------------------- double up size\n\
@@ -166,6 +167,19 @@ int main(int argc, char **args) {
       if (y <= x || y > img->height) error("cropx: invalid BOTTOM parameter");
       push(crop(img, 0, x, img->width, y));
       swap(); pop();
+    }
+    else
+    if (ARG_IS("darker")) {
+      i = 0;
+      while (strchr(*(++arg), '.')) { // FILENAME.EXT
+        i = i + 1;
+        f = fopen(*arg, "rb");
+        if (! f) error1("File not found:", *arg);
+        img = read_image(f, 0);
+        if (i == 1) { push(img); }
+        else { darker_image(im(1), img); }
+      }
+      arg--;
     }
     else
     if (ARG_IS("deskew")) {

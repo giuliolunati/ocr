@@ -41,6 +41,7 @@ void contrast_image(image *im, real black, real white);
 vector *copy_vector(vector *v0);
 image *crop(image *im, int x1, int y1, int x2, int y2);
 void cumul_vector(vector *v);
+void darker_image(image *a, image *b);
 real default_ex;
 void destroy_image(image *im);
 void destroy_vector(vector *h);
