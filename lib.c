@@ -64,6 +64,10 @@ vector *make_vector(uint size) {
   return v;
 }
 
+void *clear_vector(vector *v) {
+  memset(v->data, 0, v->size * sizeof(v->data)); 
+}
+
 void destroy_vector(vector *h) {
   if (! h) return;
   if (h->data) free(h->data);
@@ -659,54 +663,65 @@ void mean_y(image *im, uint d) {
 }
 
 real detect_skew(image *im) {
-  uint d, i, y, w1, w = im->width;
-  uint h = im->height;
+  int i, y, w1, w = im->width;
+  int h = im->height;
+  real t, s = 0;
   // create test image
-  d = im->ex;
-  if (d <= 0) error("detect_skew: im->ex <= 0");
-  w1 = floor(w / d);
-  image *test = make_image(w1, h);
-  real dx, dy, n, t;
-  short *p, *q, *end;
-  for (y = 0; y < h; y++) {
-    p = test->data + y * w1;
-    end = p + w1;
-    q = im->data + y * w;
-    for (; p < end; p++) {
-      t = 0;
-      for (i = 0; i < d; i++, q++) t += *q;
-      *p = t / d;
+  image *test = make_image(w, h - 1);
+  short *p1, *p2, *pt, *end;
+  for (y = 0; y < h - 1; y++) {
+    p1 = im->data + y * w;
+    end = p2 = p1 + w;
+    pt = test->data + y * w;
+    for (; p1 < end; p1++, p2++, pt++) {
+      t = abs(*p1 - *p2);
+      *pt = t;
+      s += t * t;
     }
   }
-  mean_y(test, d);
-  for (y = d; y < h; y++) {
-    p = test->data + y * w1;
-    q = p - d * w1;
-    end = p + w1;
-    for (; p < end; p++, q++) {
-      *q -= *p - MAXVAL/2;
+  s = sqrt(s / w / (h - 1));
+  for (y = 0; y < h - 1; y++) {
+    pt = test->data + y * w;
+    end = pt + w;
+    for (; pt < end; pt++) {
+      if (*pt < s) {*pt = 0;}
     }
   }
-  // calc skew
-  n = t = 0;
-  for (y = 1; y < h - d; y++) {
-    q = test->data + y * w1;
-    p = q - w1;
-    end = q + w1 - 1;
-    for (; q < end; p++, q++) {
-      dy = *p + *(p + 1) - *q - *(q + 1);
-      dx = *(p + 1) + *(q + 1) - *p - *q;
-      if ( fabs(dy) < 4 *
-        fabs(*p + *(q + 1) - *q - *(p + 1))
-      ) {continue;}
-      if (fabs(dx) > fabs(dy) * d) {continue;}
-      if (dy > 0) {t -= dx; n += dy;}
-      else {t += dx; n -= dy;}
+  vector *v =  make_vector(h + w);
+  real score(int d) {
+    int i, j, x, y;
+    real t, *p, *end;
+    clear_vector(v);
+    for (y = 0; y < h - 1; y++) {
+      pt = test->data + y * w;
+      x = 0;
+      for (i = 0; i <= abs(d); i++) {
+        if (d >= 0) {j = y + i;} else {j = y + w - i;} 
+        for (; x < w * (i + 1) / (abs(d) + 1); x++, pt++) {if (*pt) {v->data[j] += abs(*pt);}}
+      }
+    }
+    t = 0;
+    for (p = v->data, end = p + v->size; p < end; p++) { t += *p * *p; }
+    return t;
+  }
+  int a, b;
+  real sa, sb;
+  a = w / 10; b = -a;
+  sa = score(a); sb = score(b);
+  while (abs(a - b) > 1) {
+    if (sa > sb) {
+      b = (5 * a - 2 * b) / 3;
+      sb = score(b);
+    } else {
+      a = (5 * b - 2 * a) / 3;
+      sa = score(a);
     }
   }
-  if (n == 0) error("detect_skew: can't detect skew :-(\n"); //)
-  t /= n * d;
-  return atan(t) * 180 / M_PI;
+  if (sb > sa) {sa = sb; a = b;}
+  if (a == 0) t = 0;
+  if (a > 0) t = a + 1;
+  if (a < 0) t = a - 1;
+  return atan(t / w) * 180 / M_PI;
 }
 
 image *crop(image *im, int x1, int y1, int x2, int y2) {

@@ -37,6 +37,7 @@ typedef struct { // vector
 // PROTOTYPES -- alphabetical order //
 
 image *autocrop(image *im, int width, int height);
+void *clear_vector(vector *v);
 void contrast_image(image *im, real black, real white);
 vector *copy_vector(vector *v0);
 image *crop(image *im, int x1, int y1, int x2, int y2);

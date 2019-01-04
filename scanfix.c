@@ -183,8 +183,9 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("deskew")) {
-      img = im(1);
-      skew(img, detect_skew(img) );
+      t = detect_skew(im(1));
+      //fprintf(stderr, "skew: %g\n", t);
+      skew(im(1), t);
     }
     else
     if (ARG_IS("div")) {
