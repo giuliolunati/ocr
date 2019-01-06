@@ -23,6 +23,11 @@ typedef struct { // image
   uint height;
   real ex; // height of x in pixels
   uint pag;
+  real black;
+  real gray;
+  real white;
+  real area;
+  real thickness;
 } image;
 
 typedef struct { // vector
@@ -37,6 +42,7 @@ typedef struct { // vector
 // PROTOTYPES -- alphabetical order //
 
 image *autocrop(image *im, int width, int height);
+void calc_statistics(image *im, int verbose);
 void *clear_vector(vector *v);
 void contrast_image(image *im, real black, real white);
 vector *copy_vector(vector *v0);
@@ -71,7 +77,6 @@ void sheary_image(image *im, real t);
 void skew(image* im, real angle);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
-vector *threshold_histogram(image *im);
 int write_image(image *im, FILE *file);
 void write_vector(vector *v, FILE *f);
 

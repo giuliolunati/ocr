@@ -127,18 +127,30 @@ int main(int argc, char **args) {
     if (ARG_IS("bin")) { // auto | FLOAT
       if (! *(++arg)) error("bin: missing parameter");
       if (ARG_IS("auto")) {
-        v = threshold_histogram(im(1));
-        x = index_of_max(v) / 255.0;
-        destroy_vector(v);
+        if (im(1)->gray < 0) {
+          calc_statistics(im(1), 0);
+        }
+        x = im(1)->gray;
       }
       else x = atof(*arg);
+      x < 1 || (x /= 255);
       contrast_image(im(1), x, x);
     }
     else
-    if (ARG_IS("contrast")) { // BLACK WHITE
+    if (ARG_IS("contrast")) { // auto | BLACK WHITE
       if (! *(++arg)) error("contrast: missing BLACK parameter");
-      if (! *(++arg)) error("contrast: missing WHITE parameter");
-      contrast_image(im(1), atof(*(arg-1)), atof(*arg));
+      if (ARG_IS("auto")) {
+        if (im(1)->black < 0 || im(1)->white < 0) {
+          calc_statistics(im(1), 0);
+          x = im(1)->black;
+          y = im(1)->white;
+        }
+      } else {
+        if (! *(++arg)) error("contrast: missing WHITE parameter");
+        x = atof(*(arg-1)); x < 1 || (x /= 255);
+        y = atof(*arg); y < 1 || (y /= 255);
+      }
+      contrast_image(im(1), x, y);
     }
     else
     if (ARG_IS("cropx")) { // FLOAT FLOAT
@@ -289,6 +301,10 @@ int main(int argc, char **args) {
       push(0); swap();
       splity_image(&SP2, &SP3, img, atof(*arg));
       pop();
+    }
+    else
+    if (ARG_IS("stat")) {
+      calc_statistics(im(1), 1);
     }
     else
     if (ARG_IS("w")) { // FILENAME

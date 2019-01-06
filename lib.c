@@ -130,12 +130,14 @@ image *make_image(int width, int height) {
   if (! data) return NULL;
   im = malloc(sizeof(image));
   if (! im) return NULL;
-  im->height = height;
-  im->width = width;
+  im->type = 'I';
   im->data = data;
+  im->width = width;
+  im->height = height;
   im->ex = default_ex;
   im->pag = 0;
-  im->type = 'I';
+  im->black = im->gray = im->white = -1;
+  im->area = im->thickness = -1;
   return im;
 }
 
@@ -409,34 +411,6 @@ vector *histogram_of_image(image *im) {
       p++;
     }
   }
-  return hi;
-}
-
-vector *threshold_histogram(image *im) {
-  vector *hi = make_vector(256);
-  hi->len = hi->size;
-  real *v = hi->data;
-  int x, y, h = im->height, w = im->width;
-  short *pi = im->data;
-  short *px = pi + 1;
-  short *py = pi + w;
-  short a, b, c;
-  uint d;
-  for (y = 0; y < h - 1; y++) {
-    for (x = 0; x < w - 1; x++) {
-      a = *pi / K; b = *px / K;
-      if (a > b) {c = b; b = a; a = c;}
-      d = b - a;
-      v[a] += d; v[b] -= d;
-      a = *pi / K; b = *py / K;
-      if (a > b) {c = b; b = a; a = c;}
-      d = b - a;
-      v[a] += d; v[b] -= d;
-      pi++; px++, py++;
-    }
-    pi++; px++, py++;
-  }
-  cumul_vector(hi);
   return hi;
 }
 
@@ -923,6 +897,79 @@ void darker_image(image *a, image *b) {
     if (*pa > *pb) { *pa = *pb; };
     pa++; pb++;
   }
+}
+
+void calc_statistics(image *im, int verbose) {
+  // threshold histogram
+  vector *thr = make_vector(256);
+  thr->len = thr->size;
+  real *pt = thr->data;
+  // border histogram
+  vector *hb = make_vector(256);
+  hb->len = hb->size;
+  real *pb = hb->data;
+  // area histogram
+  vector *ha = make_vector(256);
+  ha->len = ha->size;
+  real *pa = ha->data;
+  real area, border, thickness, black, gray, white;
+  int i, x, y, t;
+  int h = im->height, w = im->width;
+  short *pi = im->data;
+  short *px = pi + 1;
+  short *py = pi + w;
+  short a, b, c;
+  uint d;
+  // histograms
+  for (y = 0; y < h - 1; y++) {
+    for (x = 0; x < w - 1; x++) {
+      a = *pi / K; b = *px / K;
+      pa[a]++;
+      if (a > b) {c = b; b = a; a = c;}
+      pb[a]++; pb[b]--;
+      d = b - a; d *= d;
+      pt[a] += d; pt[b] -= d;
+      a = *pi / K; b = *py / K;
+      if (a > b) {c = b; b = a; a = c;}
+      pb[a]++; pb[b]--;
+      d = b - a; d *= d;
+      pt[a] += d; pt[b] -= d;
+      pi++; px++, py++;
+    }
+    pi++; px++, py++;
+  }
+  // gray threshold
+  cumul_vector(thr);
+  cumul_vector(hb);
+  for (i = 0; i < 256; i++) {thr->data[i] /= sqrt(hb->data[i] + 4);}
+  t = index_of_max(thr);
+  gray = t / 255.0;
+  // border, area, thickness, nchars
+  border = hb->data[t] * 0.8;
+  cumul_vector(ha);
+  area = ha->data[t];
+  thickness = 2 * area / border;
+  // black
+  black = 0;
+  for (i = 0; i < t; i++) {
+    black += ha->data[i];
+  }
+  black = (t - (black / area)) / 255.0;
+  // white
+  white = 255 * w * h - (area * t);
+  for (i = t + 1; i < 256; i++) {
+    white -= ha->data[i];
+  }
+  white /= (w * h - area) * 255.0;
+  if (verbose) {printf(
+      "black: %g gray: %g white: %g thickness: %g area: %g \n",
+      black, gray, white, thickness, area 
+  );}
+  im->black = black;
+  im->gray = gray;
+  im->white = white;
+  im->thickness = thickness;
+  im->area = area;
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:
