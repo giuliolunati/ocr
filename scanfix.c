@@ -32,7 +32,7 @@ if (! topic) {
 - skew ANGLE: ----------- rotate (-45 ... 45)\n\
 + splitx {X | N}: ---------- split vertically\n\
 + splity {Y | N}: -------- split horizontally\n\
-+ w FILENAME: ----------------- write to file\n\
++ w [FILENAME]: ------write to file or stdout\n\
 - -h, --help: ------------------ this summary\n\
 - -h, --help COMMAND: ------- help on COMMAND\n\
   \n");
@@ -308,20 +308,22 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("w")) { // FILENAME
-      if (! *(++arg)) error("w: missing parameter");
       p = pop();
       if (IS_IMAGE(p)) {
         img = p;
-        if (strlen(*arg) > 200) {
-          error1("page name too long:", *arg);
-        }
-        sprintf(buf, *arg, img->pag);
-        f = fopen(buf, "wb");
+        if (*(++arg)) {
+          if (strlen(*arg) > 200) {
+            error1("page name too long:", *arg);
+          }
+          sprintf(buf, *arg, img->pag);
+          f = fopen(buf, "wb");
+        } else {arg--; f = stdout; }
         write_image(p, f);
       }
       else
       if (IS_VECTOR(p)) {
-        f = fopen(*arg, "wb");
+        if (*(++arg)) {f = fopen(*arg, "wb");}
+        else {arg--; f = stdout;}
         write_vector(p, f);
       }
     }
@@ -339,14 +341,6 @@ int main(int argc, char **args) {
       push(img);
     }
     else error1("Command not found:", *arg);
-  }
-  if (sp > 0) {
-    p = pop();
-    f = stdout;
-    if (IS_IMAGE(p)) write_image(p, f);
-    else
-    if (IS_VECTOR(p)) write_vector(p, f);
-    else assert(0);
   }
 }
 

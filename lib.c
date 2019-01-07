@@ -921,10 +921,11 @@ void calc_statistics(image *im, int verbose) {
   short a, b, c;
   uint d;
   // histograms
-  for (y = 0; y < h - 1; y++) {
-    for (x = 0; x < w - 1; x++) {
+  for (y = 0; y < h; y++) {
+    for (x = 0; x < w; x++) {
       a = *pi / K; b = *px / K;
       pa[a]++;
+      if ((x >= w - 1) || (y >= h - 1)) {continue;} 
       if (a > b) {c = b; b = a; a = c;}
       pb[a]++; pb[b]--;
       d = b - a; d *= d;
@@ -956,7 +957,7 @@ void calc_statistics(image *im, int verbose) {
   }
   black = (t - (black / area)) / 255.0;
   // white
-  white = 255 * w * h - (area * t);
+  white = 255.0 * w * h - (area * t);
   for (i = t + 1; i < 256; i++) {
     white -= ha->data[i];
   }
