@@ -9,32 +9,32 @@ void help(char **arg0, char *topic) {
 if (! topic) {
   printf("\nUSAGE: %s COMMANDS...\n\n", *arg0);
   printf("COMMANDS:\n\
-+ FILENAME.EXT: ------------ load a PNM image\n\
-+ -: ------------------------ load from STDIN\n\
-+ autocrop WIDTH HEIGHT: ----------- autocrop\n\
-- bg: ----------------------- find background\n\
-- bin {auto | THRESHOLD} ------to black&white\n\
-- contrast BLACK WHITE: ---- enhance contrast\n\
-+ cropx LEFT RIGHT: ------- crop horizontally\n\
-+ cropy TOP BOTTOM: --------- crop vertically\n\
-- darker FILENAMES...: -- darker of all pixel\n\
-- deskew: ---------------------- deskew image\n\
-- div: --------------------- divide im2 / im1\n\
-- double: -------------------- double up size\n\
-- ex HEIGHT: ----------- set lowercase height\n\
-- fix-bg: -------------------- fix background\n\
-- grid STEP: ----------- draw grid over image\n\
-- histo: -------------------------- histogram\n\
-- norm STRENGTH: --------- normalize contrast\n\
-- pag NUM: ------------------ set page number\n\
-- quit: ------------------- quit w/out output\n\
-+ rot ANGLE: ----- rotate (only +-90 180 270)\n\
-- skew ANGLE: ----------- rotate (-45 ... 45)\n\
-+ splitx {X | N}: ---------- split vertically\n\
-+ splity {Y | N}: -------- split horizontally\n\
-+ w [FILENAME]: ------write to file or stdout\n\
-- -h, --help: ------------------ this summary\n\
-- -h, --help COMMAND: ------- help on COMMAND\n\
++ FILENAME.EXT ------------ load a PNM image\n\
++ - ------------------------ load from STDIN\n\
++ autocrop WIDTH HEIGHT ----------- autocrop\n\
+- bg ----------------------- find background\n\
+- bin {auto | THRESHOLD} ---- to black&white\n\
+- contrast BLACK WHITE ---- enhance contrast\n\
++ cropx LEFT RIGHT ------- crop horizontally\n\
++ cropy TOP BOTTOM --------- crop vertically\n\
+- darker FILENAMES... -- darker of all pixel\n\
+- deskew ---------------------- deskew image\n\
+- div --------------------- divide im2 / im1\n\
+- double HARDNESS ----------- double up size\n\
+- ex HEIGHT ----------- set lowercase height\n\
+- fix-bg -------------------- fix background\n\
+- grid STEP ----------- draw grid over image\n\
+- histo -------------------------- histogram\n\
+- norm STRENGTH --------- normalize contrast\n\
+- pag NUM ------------------ set page number\n\
+- quit ------------------- quit w/out output\n\
++ rot ANGLE ----- rotate (only +-90 180 270)\n\
+- skew ANGLE ----------- rotate (-45 ... 45)\n\
++ splitx {X | N} ---------- split vertically\n\
++ splity {Y | N} -------- split horizontally\n\
++ w [FILENAME] ------write to file or stdout\n\
+- -h, --help ------------------ this summary\n\
+- -h, --help COMMAND ------- help on COMMAND\n\
   \n");
 } else printf("No help for %s.\n", topic);
 exit(0);
@@ -196,7 +196,7 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("deskew")) {
       t = detect_skew(im(1));
-      //fprintf(stderr, "skew: %g\n", t);
+      fprintf(stderr, "skew: %g\n", t);
       skew(im(1), t);
     }
     else

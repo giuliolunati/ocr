@@ -6,4 +6,4 @@ scanfix: scanfix.c lib.o
 
 .PHONY: clean
 clean:
-	rm -f fixpix *~ *.o
+	rm -f scanfix *~ *.o
