@@ -156,29 +156,19 @@ image *read_image(FILE *file, int layer) {
   if (1 > fscanf(file, "P%d ", &depth)) {
     error("Not a PNM file - wrong magic.");
   }
-  while (1 > fscanf(file, "%d ", &width)) {
-    x = fscanf(file, "%c", &c);
-    if (c != '#') error("Not a PNM file - wrong width.");
-    while (1) {
-      x = fscanf(file, "%c", &c);
-      if (c == '\n') break;
-    }
+  if (1 > fscanf(file, "%d ", &width)) {
+    error("Not a PNM file - wrong width.");
   }
-  while (1 > fscanf(file, "%d ", &height)) {
-    x = fscanf(file, "%c", &c);
-    if (c != '#') error("Not a PNM file - wrong height.");
-    while (1) {
-      x = fscanf(file, "%c", &c);
-      if (c == '\n') break;
-    }
+  if (1 > fscanf(file, "%d ", &height)) {
+    error("Not a PNM file - wrong height.");
   }
-  while (1 > fscanf(file, "%d ", &type)) {
-    x = fscanf(file, "%c", &c);
-    if (c != '#') error("Not a PNM file - wrong type.");
-    while (1) {
-      x = fscanf(file, "%c", &c);
-      if (c == '\n') break;
-    }
+  if (1 > fscanf(file, "%d", &type)) {
+    error("Not a PNM file - wrong type.");
+  }
+  if (1 > fscanf(file, "%c", &c) || 
+    (c != ' ' && c != '\t' && c != '\n')
+  ) {
+    error("Not a PNM file - no w/space after type");
   }
   switch (depth) {
     case 5: depth = 1; break;
@@ -195,7 +185,9 @@ image *read_image(FILE *file, int layer) {
   buf = malloc(width * depth);
   pt = im->data;
   for (y = 0; y < height; y++) {
-    if (width > fread(buf, depth, width, file))  error("Unexpected EOF");
+    if (width > fread(buf, depth, width, file)) {
+      error("Unexpected EOF");
+    }
     ps = buf + layer;
     for (x = 0; x < width; x++, pt++, ps += depth) {
       *pt = *ps * K + K_2;
