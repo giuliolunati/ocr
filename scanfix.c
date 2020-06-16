@@ -24,6 +24,7 @@ if (! topic) {
 - ex HEIGHT ----------- set lowercase height\n\
 - fix-bg -------------------- fix background\n\
 - grid STEP ----------- draw grid over image\n\
+- half ---------------------- half down size\n\
 - histo -------------------------- histogram\n\
 - norm STRENGTH --------- normalize contrast\n\
 - pag NUM ------------------ set page number\n\
@@ -247,6 +248,11 @@ int main(int argc, char **args) {
       if (x <= 1) x *= img->width;
       if (y <= 1) y *= img->height;
       draw_grid(im(1), x, y);
+    }
+    else
+    if (ARG_IS("half")) {
+      push(half_size(im(1)));
+      swap(); pop();
     }
     else
     if (ARG_IS("histo")) {

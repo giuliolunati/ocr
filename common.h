@@ -59,6 +59,7 @@ image *double_size(image *im, real k /*hardness*/);
 void draw_grid(image *im, int stepx, int stepy);
 void error1(const char *msg, const char *param);
 void error(const char *msg);
+image *half_size(image *im);
 vector *histogram_of_image(image *im);
 image *image_background(image *im);
 void *image_from_srgb(image *im);

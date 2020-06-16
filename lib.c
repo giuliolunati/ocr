@@ -934,7 +934,7 @@ void calc_statistics(image *im, int verbose) {
   // gray threshold
   cumul_vector(thr);
   cumul_vector(hb);
-  for (i = 0; i < 256; i++) {thr->data[i] /= sqrt(hb->data[i] + 4);}
+  // for (i = 0; i < 256; i++) {thr->data[i] /= sqrt(hb->data[i] + 4);}
   t = index_of_max(thr);
   gray = t / 255.0;
   // border, area, thickness, nchars
@@ -963,6 +963,31 @@ void calc_statistics(image *im, int verbose) {
   im->white = white;
   im->thickness = thickness;
   im->area = area;
+}
+
+image *half_size(image *im) {
+  int w = im->width, h = im->height;
+  int x, y, dx, dy;
+  int w2 = w / 2, h2 = h / 2;
+  image *om = make_image(w2, h2);
+  om->ex = im->ex / 2;
+  om->pag = im->pag;
+  short *i1, *i2, *i3, *i4, *o;
+  real v;
+
+  for (y = 0; y < h; y += 2) {
+    i1 = im->data + (w * y); i2= i1 + 1;
+    if (y == h - 1) {i3 = i1; i4 = i2;}
+    else {i3 = i1 + w; i4 = i2 + w;}
+    o = om->data + (w2 * y / 2);
+    for (x = 0; x < w; x += 2) {
+      v = (*i1 + *i2 + *i3 + *i4) / 4;
+      *o = v; o++;
+      i1 += 2; i3 += 2;
+      if (x < w - 1) {i2 += 2; i4 += 2;}
+    }
+  }
+  return om;
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:
