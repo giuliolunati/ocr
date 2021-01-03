@@ -43,7 +43,7 @@ typedef struct { // vector
 
 image *autocrop(image *im, int width, int height);
 void calc_statistics(image *im, int verbose);
-void *clear_vector(vector *v);
+void clear_vector(vector *v);
 void contrast_image(image *im, real black, real white);
 vector *copy_vector(vector *v0);
 image *crop(image *im, int x1, int y1, int x2, int y2);
@@ -62,7 +62,7 @@ void error(const char *msg);
 image *half_size(image *im);
 vector *histogram_of_image(image *im);
 image *image_background(image *im);
-void *image_from_srgb(image *im);
+void image_from_srgb(image *im);
 uint index_of_max(vector *v);
 void init_srgb();
 short lin_from_srgb[256];
@@ -78,7 +78,7 @@ void sheary_image(image *im, real t);
 void skew(image* im, real angle);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
-int write_image(image *im, FILE *file);
+void write_image(image *im, FILE *file);
 void write_vector(vector *v, FILE *f);
 
 // vim: sw=2 ts=2 sts=2 expandtab:

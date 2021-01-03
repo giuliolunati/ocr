@@ -43,12 +43,12 @@ exit(0);
 
 int get_page_number(char *s) {
   int n;
-  for (n = 0; *s; s++) {
+  for (n= 0; *s; s++) {
     if ('.' == *s && n) break; 
     if ('0' <= *s && *s <= '9') {
-      n = n * 10 + (*s - '0');
+      n= n * 10 + (*s - '0');
     }
-    else n = 0;
+    else n= 0;
   }
   return n;
 }
@@ -61,12 +61,12 @@ void *stack[STACK_SIZE];
 #define SP2 stack[sp - 2]
 #define SP3 stack[sp - 3]
 
-int sp = 0;
+int sp= 0;
 
-void *swap() {
+void swap() {
   void *p;
   if (sp < 2) error("Stack underflow");
-  p = SP2; SP2 = SP1; SP1 = p;
+  p= SP2; SP2= SP1; SP1= p;
 }
 
 void *pop() {
@@ -78,7 +78,7 @@ void *pop() {
 void push(void *p) {
   if (sp >= STACK_SIZE) error("Stack overflow");
   if (SP) free(SP);
-  SP = p;
+  SP= p;
   sp++;
 }
 
@@ -90,7 +90,7 @@ image *im(int i) {
 //// MAIN ////
 int main(int argc, char **args) {
   #define ARG_IS(x) EQ((x), *arg)
-  char **arg = args;
+  char **arg= args;
   char buf[256];
   image *img;
   vector *v;
@@ -108,13 +108,13 @@ int main(int argc, char **args) {
     if (ARG_IS("all"));
     else
     if (ARG_IS("autocrop")) { // FLOAT FLOAT
-      img = im(1);
+      img= im(1);
       if (! *(++arg)) error("autocrop: missing WIDTH parameter");
-      x = atof(*arg);
+      x= atof(*arg);
       if (x <= 1) x *= img->width;
       if (x <= 0 || x > img->width) error("autocrop: invalid WIDTH parameter");
       if (! *(++arg)) error("autocrop: missing HEIGHT parameter");
-      y = atof(*arg);
+      y= atof(*arg);
       if (y <= 1) y *= img->height;
       if (y <= 0 || y > img->height) error("autocrop: invalid HEIGHT parameter");
       push(autocrop(img, x, y));
@@ -131,9 +131,9 @@ int main(int argc, char **args) {
         if (im(1)->gray < 0) {
           calc_statistics(im(1), 0);
         }
-        x = im(1)->gray;
+        x= im(1)->gray;
       }
-      else x = atof(*arg);
+      else x= atof(*arg);
       x < 1 || (x /= 255);
       contrast_image(im(1), x, x);
     }
@@ -143,25 +143,25 @@ int main(int argc, char **args) {
       if (ARG_IS("auto")) {
         if (im(1)->black < 0 || im(1)->white < 0) {
           calc_statistics(im(1), 0);
-          x = im(1)->black;
-          y = im(1)->white;
+          x= im(1)->black;
+          y= im(1)->white;
         }
       } else {
         if (! *(++arg)) error("contrast: missing WHITE parameter");
-        x = atof(*(arg-1)); x < 1 || (x /= 255);
-        y = atof(*arg); y < 1 || (y /= 255);
+        x= atof(*(arg-1)); x < 1 || (x /= 255);
+        y= atof(*arg); y < 1 || (y /= 255);
       }
       contrast_image(im(1), x, y);
     }
     else
     if (ARG_IS("cropx")) { // FLOAT FLOAT
-      img = im(1);
+      img= im(1);
       if (! *(++arg)) error("cropx: missing LEFT parameter");
-      x = atof(*arg);
+      x= atof(*arg);
       if (x <= 1) x *= img->width;
       if (x < 0 || x >= img->width) error("cropx: invalid LEFT parameter");
       if (! *(++arg)) error("cropx: missing RIGHT parameter");
-      y = atof(*arg);
+      y= atof(*arg);
       if (y <= 1) y *= img->width;
       if (y <= x || y > img->width) error("cropx: invalid RIGHT parameter");
       push(crop(img, x, 0, y, img->height));
@@ -169,13 +169,13 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("cropy")) { // FLOAT FLOAT
-      img = im(1);
+      img= im(1);
       if (! *(++arg)) error("cropy: missing TOP parameter");
-      x = atof(*arg);
+      x= atof(*arg);
       if (x <= 1) x *= img->height;
       if (x < 0 || x >= img->height) error("cropy: invalid TOP parameter");
       if (! *(++arg)) error("cropy: missing BOTTOM parameter");
-      y = atof(*arg);
+      y= atof(*arg);
       if (y <= 1) y *= img->height;
       if (y <= x || y > img->height) error("cropx: invalid BOTTOM parameter");
       push(crop(img, 0, x, img->width, y));
@@ -183,12 +183,12 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("darker")) {
-      i = 0;
+      i= 0;
       while (strchr(*(++arg), '.')) { // FILENAME.EXT
-        i = i + 1;
-        f = fopen(*arg, "rb");
+        i= i + 1;
+        f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img = read_image(f, 0);
+        img= read_image(f, 0);
         if (i == 1) { push(img); }
         else { darker_image(im(1), img); }
       }
@@ -196,7 +196,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("deskew")) {
-      t = detect_skew(im(1));
+      t= detect_skew(im(1));
       fprintf(stderr, "skew: %g\n", t);
       skew(im(1), t);
     }
@@ -208,7 +208,7 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("double")) { // FLOAT
       if (! *(++arg)) error("double: missing HARDNESS parameter");
-      x = atof(*arg);
+      x= atof(*arg);
       push(double_size(im(1), x));
       swap(); pop();
     }
@@ -223,28 +223,28 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("ex")) { // FLOAT
       if (! *(++arg)) error("ex: missing parameter");
-      t = atof(*arg);
+      t= atof(*arg);
       if (t <= 0) error("ex param must be > 0.");
       if (sp) {
-        img = im(1);
+        img= im(1);
         if (t < 1) t *= img->height;
-        img->ex = t;
+        img->ex= t;
       }
-      default_ex = t;
+      default_ex= t;
     }
     else
     if (ARG_IS("fix-bg")) {
-      img = im(1);
+      img= im(1);
       push(image_background(img));
       divide_image(im(2), img);
       pop();
     }
     else
     if (ARG_IS("grid")) {
-      img = im(1);
+      img= im(1);
       if (! *(++arg)) error("grid: missing STEP parameter");
-      x = atof(*arg);
-      y = x;
+      x= atof(*arg);
+      y= x;
       if (x <= 1) x *= img->width;
       if (y <= 1) y *= img->height;
       draw_grid(im(1), x, y);
@@ -256,7 +256,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("histo")) {
-      v = histogram_of_image(im(1));
+      v= histogram_of_image(im(1));
       push(v);
     }
     else
@@ -275,7 +275,7 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("pag")) { // INT
       if (! *(++arg)) error("pag: missing parameter");
-      im(1)->pag = atoi(*arg);
+      im(1)->pag= atoi(*arg);
     }
     else
     if (ARG_IS("quit")) exit(0);
@@ -293,7 +293,7 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("splitx")) { // FLOAT
       if (! *(++arg)) error("splitx: missing parameter");
-      img = im(1);
+      img= im(1);
       push(0); swap();
       push(0); swap();
       splitx_image(&SP2, &SP3, img, atof(*arg));
@@ -302,7 +302,7 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("splity")) { // FLOAT
       if (! *(++arg)) error("splity: missing parameter");
-      img = im(1);
+      img= im(1);
       push(0); swap();
       push(0); swap();
       splity_image(&SP2, &SP3, img, atof(*arg));
@@ -314,22 +314,22 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("w")) { // FILENAME
-      p = pop();
+      p= pop();
       if (IS_IMAGE(p)) {
-        img = p;
+        img= p;
         if (*(++arg)) {
           if (strlen(*arg) > 200) {
             error1("page name too long:", *arg);
           }
           sprintf(buf, *arg, img->pag);
-          f = fopen(buf, "wb");
-        } else {arg--; f = stdout; }
+          f= fopen(buf, "wb");
+        } else {arg--; f= stdout; }
         write_image(p, f);
       }
       else
       if (IS_VECTOR(p)) {
-        if (*(++arg)) {f = fopen(*arg, "wb");}
-        else {arg--; f = stdout;}
+        if (*(++arg)) {f= fopen(*arg, "wb");}
+        else {arg--; f= stdout;}
         write_vector(p, f);
       }
     }
@@ -339,11 +339,11 @@ int main(int argc, char **args) {
     }
     else
     if (strchr(*arg, '.')) { // FILENAME.EXT
-      i = get_page_number(*arg);
-      f = fopen(*arg, "rb");
+      i= get_page_number(*arg);
+      f= fopen(*arg, "rb");
       if (! f) error1("File not found:", *arg);
-      img = read_image(f, 0);
-      img->pag = i;
+      img= read_image(f, 0);
+      img->pag= i;
       push(img);
     }
     else error1("Command not found:", *arg);
