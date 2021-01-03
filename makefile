@@ -1,9 +1,9 @@
 CC = gcc
 CFLAGS = -O3
 
-scanfix: scanfix.c lib.o
-	$(CC) -o $@ $< lib.o -lm ${PIE}
+grafix: grafix.c libgrafix.o
+	$(CC) -o $@ $< libgrafix.o -lm ${PIE}
 
 .PHONY: clean
 clean:
-	rm -f scanfix *~ *.o
+	rm -f grafix *~ *.o

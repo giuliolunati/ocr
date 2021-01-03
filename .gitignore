@@ -1,6 +1,7 @@
-fixpix
-images.cc
-fixpix-0.c
+.rsync-filter
+grafix
+
 *.pnm
 *.jpg
+*.jpeg
 *.o
