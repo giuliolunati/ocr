@@ -139,6 +139,9 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("contrast")) { // auto | BLACK WHITE
+      // BLACK and WHITE args:
+      // integer -> sRGB values (white = 255)
+      // float -> linear values (white = 1.0)
       if (! *(++arg)) error("contrast: missing BLACK parameter");
       if (ARG_IS("auto")) {
         if (im(1)->black < 0 || im(1)->white < 0) {
@@ -148,8 +151,14 @@ int main(int argc, char **args) {
         }
       } else {
         if (! *(++arg)) error("contrast: missing WHITE parameter");
-        x= atof(*(arg-1)); x < 1 || (x /= 255);
-        y= atof(*arg); y < 1 || (y /= 255);
+        x= atof(*(arg-1));
+        if (! strchr(*(arg-1), '.')) {// integer
+          x= (real)lin_from_srgb[(int) x] / MAXVAL;
+        }
+        y= atof(*arg);
+        if (! strchr(*arg, '.')) {// integer
+          y= (real)lin_from_srgb[(int) y] / MAXVAL;
+        }
       }
       contrast_image(im(1), x, y);
     }

@@ -190,27 +190,12 @@ image *read_image(FILE *file, int layer) {
     }
     ps= buf + layer;
     for (x= 0; x < width; x++, pt++, ps += depth) {
-      *pt= *ps * K + K_2;
-      //assert (*pt >= 0);
-      //assert (*pt <= MAXVAL);
+      // *pt= *ps * K + K_2; // linear
+      *pt= lin_from_srgb[*ps]; // sRGB
     }
   }
   free(buf);
   return im;
-}
-
-void image_from_srgb(image *im) {
-  short *p, *end;
-  short i;
-  end= im->data + (im->height * im->width);
-  for (p= im->data; p < end; p++) {
-    i= *p;
-    if (i > 255) *p= MAXVAL;
-    else
-    if (i < 0) *p= 0;
-    else
-    *p= lin_from_srgb[*p];
-  }
 }
 
 void write_image(image *im, FILE *file) {
@@ -225,12 +210,13 @@ void write_image(image *im, FILE *file) {
   assert(ps);
   for (y= 0; y < im->height; y++) {
     pt= buf;
-    for (x= 0; x < im->width; x++) {
-      v= *(ps++);
+    for (x= 0; x < im->width; x++, pt++, ps++) {
+      v= *(ps);
       if (v < 0) v= 0;
       else
       if (v > MAXVAL) v= MAXVAL;
-      *pt++= v / K; 
+      // *pt= v / K; // linear
+      *pt= srgb_from_lin[v]; // sRGB
     }
     if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
   }
@@ -407,34 +393,35 @@ vector *histogram_of_image(image *im) {
 }
 
 void contrast_image(image *im, real black, real white) {
-  vector *v= make_vector(256);
-  v->len= v->size;
-  real m= (white - black) / K;
-  black *= 255;
-  white *= 255;
-  real t;
-  uint i;
-  if (white >= black) for (i= 0; i < v->len; i++) {
-    if (i <= black) t= 0;
-    else
-    if (i >= white) t= MAXVAL;
-    else t= (i - black) / m;
-    v->data[i]= t;
-  }
-  else for (i= 0; i < v->len; i++) {
-    t= (i - black) / m;
-    if (t < 0) t= 0;
-    else
-    if (t > MAXVAL) t= MAXVAL;
-    v->data[i]= t;
-  }
-  ulong l= im->width * im->height;
+  short *end= im->data + (im->width * im->height);
   short *p;
-  for (p= im->data; p < im->data + l; p++) {
-    //assert (*p >= 0);
-    *p= v->data[*p / K];
+  black *= MAXVAL;
+  white *= MAXVAL;
+  if (white == black) {
+    for (p= im->data; p < end; p++) {
+      if (*p <= black) *p= 0;
+      else *p= MAXVAL;
+    }
+    return;
   }
-  destroy_vector(v);
+  real a= MAXVAL / (white - black) ;
+  real b= -a * black;
+  if (black < white) {
+    for (p= im->data; p < end; p++) {
+      if (*p <= black) *p= 0;
+      else if (*p >= white) *p= MAXVAL;
+      else *p= *p * a + b;
+    }
+    return;
+  }
+  else { // white < black
+    for (p= im->data; p < end; p++) {
+      if (*p >= black) *p= 0;
+      else if (*p <= white) *p= MAXVAL;
+      else *p= *p * a + b;
+    }
+    return;
+  }
 }
 
 void normalize_image(image *im, real strength) {

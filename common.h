@@ -62,7 +62,6 @@ void error(const char *msg);
 image *half_size(image *im);
 vector *histogram_of_image(image *im);
 image *image_background(image *im);
-void image_from_srgb(image *im);
 uint index_of_max(vector *v);
 void init_srgb();
 short lin_from_srgb[256];
