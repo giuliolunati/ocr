@@ -90,14 +90,20 @@ image *im(int i) {
 //// MAIN ////
 int main(int argc, char **args) {
   #define ARG_IS(x) EQ((x), *arg)
+  #define CMD_LEN 300
+  #define BUF_LEN 200
   char **arg= args;
-  char buf[256];
+  char name[200];
+  char cmd[256];
+  char *ext;
+  char *jpegtopnm= "jpegtopnm -quiet ";
+  char *pnmtojpeg= "pnmtojpeg -quiet -quality 90 > ";
   image *img;
   vector *v;
   void *p;
   FILE *f;
   real t, x, y;
-  int i, w, h;
+  int l, i, w, h;
 
   init_srgb();
   if (argc < 2) help(args, NULL);
@@ -285,6 +291,7 @@ int main(int argc, char **args) {
     if (ARG_IS("pag")) { // INT
       if (! *(++arg)) error("pag: missing parameter");
       im(1)->pag= atoi(*arg);
+      if (im(1)->pag > 9999) error("pag: number > 9999");
     }
     else
     if (ARG_IS("quit")) exit(0);
@@ -327,19 +334,38 @@ int main(int argc, char **args) {
       if (IS_IMAGE(p)) {
         img= p;
         if (*(++arg)) {
-          if (strlen(*arg) > 200) {
-            error1("page name too long:", *arg);
+          if (strlen(*arg) >= 200) {
+            error1("file name too long:", *arg);
           }
-          sprintf(buf, *arg, img->pag);
-          f= fopen(buf, "wb");
-        } else {arg--; f= stdout; }
-        write_image(p, f);
+          sprintf(name, *arg, img->pag);
+          l= strlen(name);
+          ext= name + l - 4;
+          if (l >= 4 && EQ(ext, ".jpg")) {
+            strcpy(cmd, pnmtojpeg);
+            if (strlen(pnmtojpeg) + strlen(name) >= CMD_LEN) {
+              error1("name too long: %s", name);
+            }
+            strcat(cmd, name);
+            f= popen(cmd, "wb");
+            write_image(p, f);
+            pclose(f);
+          } else {
+            f= fopen(name, "wb");
+            write_image(p, f);
+            fclose(f);
+          }
+        } else {
+          arg--; f= stdout;
+          write_image(p, f);
+        }
       }
       else
       if (IS_VECTOR(p)) {
-        if (*(++arg)) {f= fopen(*arg, "wb");}
+        if (*(++arg)) {
+          f= fopen(*arg, "wb");}
         else {arg--; f= stdout;}
         write_vector(p, f);
+        fclose(f);
       }
     }
     else
@@ -349,9 +375,24 @@ int main(int argc, char **args) {
     else
     if (strchr(*arg, '.')) { // FILENAME.EXT
       i= get_page_number(*arg);
-      f= fopen(*arg, "rb");
-      if (! f) error1("File not found:", *arg);
-      img= read_image(f, 0);
+      l= strlen(*arg);
+      ext= *arg + l - 4;
+      if (l >= 4 && EQ(ext, ".jpg")) {
+        strcpy(cmd, jpegtopnm);
+        if (strlen(jpegtopnm) + strlen(*arg) >= CMD_LEN) {
+          error1("name too long: %s", *arg);
+        }
+        strcat(cmd, *arg);
+        f= popen(cmd, "rb");
+        img= read_image(f, 0);
+        pclose(f);
+      } else {
+        f= fopen(*arg, "rb");
+        if (! f) error1("File not found:", *arg);
+        img= read_image(f, 0);
+        fclose(f);
+      }
+      if (i > 9999) error("page number > 9999");
       img->pag= i;
       push(img);
     }
