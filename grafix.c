@@ -9,8 +9,8 @@ void help(char **arg0, char *topic) {
 if (! topic) {
   printf("\nUSAGE: %s COMMANDS...\n\n", *arg0);
   printf("COMMANDS:\n\
-+ FILENAME.EXT ------------ load a PNM image\n\
-+ - ------------------------ load from STDIN\n\
++ [s:]FILENAME.EXT -------- load a PNM image\n\
++ [s:]- -------------------- load from STDIN\n\
 + autocrop WIDTH HEIGHT ----------- autocrop\n\
 - bg ----------------------- find background\n\
 - bin {auto | THRESHOLD} ---- to black&white\n\
@@ -33,7 +33,7 @@ if (! topic) {
 - skew ANGLE ----------- rotate (-45 ... 45)\n\
 + splitx {X | N} ---------- split vertically\n\
 + splity {Y | N} -------- split horizontally\n\
-+ w [FILENAME] ------write to file or stdout\n\
++ w [s:]FILENAME/- ---- write to file/stdout\n\
 - -h, --help ------------------ this summary\n\
 - -h, --help COMMAND ------- help on COMMAND\n\
   \n");
@@ -44,7 +44,7 @@ exit(0);
 int get_page_number(char *s) {
   int n;
   for (n= 0; *s; s++) {
-    if ('.' == *s && n) break; 
+    if ('.' == *s && n) break;
     if ('0' <= *s && *s <= '9') {
       n= n * 10 + (*s - '0');
     }
@@ -103,15 +103,19 @@ int main(int argc, char **args) {
   void *p;
   FILE *f;
   real t, x, y;
-  int l, i, w, h;
+  int c, l, i, w, h;
 
-  init_srgb();
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
+    if (ARG_IS("-")) { // see also s:-
+      push(read_image(stdin, 0, SRGB));
+    }
+    else
     if (ARG_IS("-h") || ARG_IS("--help")) {
       help(args, *(++arg));
     }
-    if (ARG_IS("all"));
+    else
+    if (ARG_IS("all")); // see odd, even
     else
     if (ARG_IS("autocrop")) { // FLOAT FLOAT
       img= im(1);
@@ -159,11 +163,11 @@ int main(int argc, char **args) {
         if (! *(++arg)) error("contrast: missing WHITE parameter");
         x= atof(*(arg-1));
         if (! strchr(*(arg-1), '.')) {// integer
-          x= (real)lin_from_srgb[(int) x] / MAXVAL;
+          x= (real)srgb_to_lin[(int) x] / MAXVAL;
         }
         y= atof(*arg);
         if (! strchr(*arg, '.')) {// integer
-          y= (real)lin_from_srgb[(int) y] / MAXVAL;
+          y= (real)srgb_to_lin[(int) y] / MAXVAL;
         }
       }
       contrast_image(im(1), x, y);
@@ -203,7 +207,7 @@ int main(int argc, char **args) {
         i= i + 1;
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, 0);
+        img= read_image(f, 0, SRGB);
         if (i == 1) { push(img); }
         else { darker_image(im(1), img); }
       }
@@ -302,6 +306,10 @@ int main(int argc, char **args) {
       swap(); pop();
     }
     else
+    if (ARG_IS("s:-")) { // -
+      push(read_image(stdin, 0, SIGMA));
+    }
+    else
     if (ARG_IS("skew")) { // FLOAT
       if (! *(++arg)) error("skew: missing parameter");
       skew(im(1), atof(*arg));
@@ -329,51 +337,61 @@ int main(int argc, char **args) {
       calc_statistics(im(1), 1);
     }
     else
-    if (ARG_IS("w")) { // FILENAME
+    if (ARG_IS("w")) { // [s:]FILENAME
+      if (! *(++arg)) error("w: missing filename");
       p= pop();
       if (IS_IMAGE(p)) {
         img= p;
-        if (*(++arg)) {
-          if (strlen(*arg) >= 200) {
-            error1("file name too long:", *arg);
-          }
+        if (*arg == strstr(*arg, "s:")) {
+          c= SIGMA;
+          (*arg) += 2; // discard s:
+        } else c= SRGB;
+        if (strlen(*arg) >= 200) {
+          error1("file name too long:", *arg);
+        }
+        if (EQ(*arg, "-")) l= 0;
+        else {
           sprintf(name, *arg, img->pag);
           l= strlen(name);
           ext= name + l - 4;
-          if (l >= 4 && EQ(ext, ".jpg")) {
-            strcpy(cmd, pnmtojpeg);
-            if (strlen(pnmtojpeg) + strlen(name) >= CMD_LEN) {
-              error1("name too long: %s", name);
-            }
-            strcat(cmd, name);
-            f= popen(cmd, "wb");
-            write_image(p, f);
-            pclose(f);
-          } else {
-            f= fopen(name, "wb");
-            write_image(p, f);
-            fclose(f);
+        }
+        if (l >= 4 && EQ(ext, ".jpg")) {
+          strcpy(cmd, pnmtojpeg);
+          if (strlen(pnmtojpeg) + strlen(name) >= CMD_LEN) {
+            error1("name too long: %s", name);
           }
-        } else {
-          arg--; f= stdout;
-          write_image(p, f);
+          strcat(cmd, name);
+          f= popen(cmd, "wb");
+          write_image(p, f, c);
+          pclose(f);
+        } else if (l > 0) {
+          f= fopen(name, "wb");
+          write_image(p, f, c);
+          fclose(f);
+        }
+        else {
+          f= stdout;
+          write_image(p, f, c);
         }
       }
       else
       if (IS_VECTOR(p)) {
-        if (*(++arg)) {
-          f= fopen(*arg, "wb");}
-        else {arg--; f= stdout;}
-        write_vector(p, f);
-        fclose(f);
+        if (EQ(*arg, "-")) {
+          f= stdout;
+          write_vector(p, f);
+        } else {
+          f= fopen(*arg, "wb");
+          write_vector(p, f);
+          fclose(f);
+        }
       }
     }
     else
-    if (ARG_IS("-")) {
-      push(read_image(stdin, 0));
-    }
-    else
-    if (strchr(*arg, '.')) { // FILENAME.EXT
+    if (strchr(*arg, '.')) { // [s:]FILENAME.EXT
+      if (*arg == strstr(*arg, "s:")) {
+        c= SIGMA;
+        (*arg) += 2; // discard s:
+      } else c= SRGB;
       i= get_page_number(*arg);
       l= strlen(*arg);
       ext= *arg + l - 4;
@@ -384,12 +402,12 @@ int main(int argc, char **args) {
         }
         strcat(cmd, *arg);
         f= popen(cmd, "rb");
-        img= read_image(f, 0);
+        img= read_image(f, 0, c);
         pclose(f);
       } else {
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, 0);
+        img= read_image(f, 0, c);
         fclose(f);
       }
       if (i > 9999) error("page number > 9999");

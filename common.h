@@ -14,6 +14,9 @@
 #define MAXVAL 4095 // 256 * K - 1
 #define MAXSHORT 32767
 
+#define SRGB 0
+#define SIGMA 1
+
 // TYPES -- alphabetical order //
 
 typedef struct { // image
@@ -57,19 +60,19 @@ void diff_vector(vector *v, uint d);
 void divide_image(image *a, image *b);
 image *double_size(image *im, real k /*hardness*/);
 void draw_grid(image *im, int stepx, int stepy);
-void error1(const char *msg, const char *param);
+void ensure_init_srgb();
+void ensure_init_sigma();
 void error(const char *msg);
+void error1(const char *msg, const char *param);
 image *half_size(image *im);
 vector *histogram_of_image(image *im);
 image *image_background(image *im);
 uint index_of_max(vector *v);
-void init_srgb();
-short lin_from_srgb[256];
 image *make_image(int width, int height);
 vector *make_vector(uint size);
 void mean_y(image *im, uint d);
 void normalize_image(image *im, real strength);
-image *read_image(FILE *file, int layer);
+image *read_image(FILE *file, int layer, int encoding);
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);
 void shearx_image(image *im, real t);
@@ -77,7 +80,8 @@ void sheary_image(image *im, real t);
 void skew(image* im, real angle);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
-void write_image(image *im, FILE *file);
+short *srgb_to_lin;
+void write_image(image *im, FILE *file, int encoding);
 void write_vector(vector *v, FILE *f);
 
 // vim: sw=2 ts=2 sts=2 expandtab:

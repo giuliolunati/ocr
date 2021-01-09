@@ -21,30 +21,66 @@ void error1(const char *msg, const char *param) {
   // srgb < 0.04045: lin= srgb / 12.92
   // srgb > 0.04045: lin= [(srgb + 0.055) / 1.055]^2.4
 
-short lin_from_srgb[256];
-uchar srgb_from_lin[MAXVAL + 1];
+short *srgb_to_lin= NULL;
+uchar *srgb_from_lin= NULL;
 
-void init_srgb() {
-  int i, l0, s;
-  real l;
-  for (s= 0; s <= 255; s++) {
-    l= (s + 0.5) / 255.5;
-    if (l < 0.04045) l /= 12.92;
-    else {
-      l= (l + 0.055) / 1.055;
-      l= pow(l, 2.4);
+void ensure_init_srgb() {
+  if (srgb_to_lin && srgb_from_lin) return;
+  srgb_to_lin= realloc(srgb_to_lin, 256);
+  srgb_from_lin= realloc(srgb_from_lin, MAXVAL + 1);
+  float x, x0= 0;
+  int l= 0;
+  int s;
+  for (s= 1; s <= 256; s ++) {
+    x= s / 256.0;
+    // sRGB map [0, 1] -> [0, 1]
+    if (x < 0.04045) x /= 12.92;
+    else x= pow(x, 2.4);
+    //
+    while (l + 0.5 < x * (MAXVAL + 1)) {
+      srgb_from_lin[l]= s;
+      l ++;
     }
-    l= roundf(l * MAXVAL);
-    lin_from_srgb[s]= l;
-    if (s == 0) { l0= 0; continue; }
-    for (i= l0; i <= (l0 + l) / 2; i++) {
-      srgb_from_lin[i]= s - 1;
-    }
-    for (; i <= l; i++) {
-      srgb_from_lin[i]= s;
-    }
-    l0= l;
+    srgb_to_lin[s-1]= (x + x0) / 2 * (MAXVAL + 1);
+    x0= x;
   }
+  while (l <= MAXVAL) {
+    srgb_from_lin[l]= 255;
+    l ++;
+  }
+  assert(srgb_to_lin[255] <= MAXVAL);
+  assert(srgb_from_lin[MAXVAL]= 255);
+}
+
+short *sigma_to_lin= NULL;
+uchar *sigma_from_lin= NULL;
+
+void ensure_init_sigma() {
+  short s, l;
+  if (sigma_to_lin && sigma_from_lin) return;
+  sigma_to_lin= realloc(sigma_to_lin, 256);
+  sigma_from_lin= realloc(sigma_from_lin, 2 * MAXVAL + 1);
+  double y, y0, k= 0.04662964128062114; // sh(kX) = kY
+  l= -MAXVAL;
+  for (s= -1; s < 256; s ++) {
+    y= exp( ((double)s - 128 + 0.5) * k );
+    y = (y - 1/y) / 2 / k;
+    if (s < 0) { y0= y; continue; }
+    sigma_to_lin[s]= (y + y0) / 2;
+    y0= y;
+    while (l + 0.5 < y) {
+      sigma_from_lin[l + MAXVAL]= s;
+      l ++;
+    }
+  }
+  while (l <= MAXVAL) {
+    sigma_from_lin[l + MAXVAL]= 255;
+    l ++;
+  }
+
+  assert(sigma_from_lin[0] == 1);
+  assert(sigma_from_lin[MAXVAL] == 128);
+  assert(sigma_from_lin[2*MAXVAL] == 255);
 }
 
 //// VECTORS ////
@@ -147,7 +183,7 @@ void destroy_image(image *im) {
   free(im);
 }
 
-image *read_image(FILE *file, int layer) {
+image *read_image(FILE *file, int layer, int encoding) {
   int x, y, type, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
@@ -184,21 +220,34 @@ image *read_image(FILE *file, int layer) {
   if (!im) error("Cannot make image.");;
   buf= malloc(width * depth);
   pt= im->data;
-  for (y= 0; y < height; y++) {
-    if (width > fread(buf, depth, width, file)) {
-      error("Unexpected EOF");
+  if (encoding == SRGB) {
+    ensure_init_srgb();
+    for (y= 0; y < height; y++) {
+      if (width > fread(buf, depth, width, file)) {
+        error("Unexpected EOF");
+      }
+      ps= buf + layer;
+      for (x= 0; x < width; x++, pt++, ps += depth) {
+        *pt= srgb_to_lin[*ps];
+      }
     }
-    ps= buf + layer;
-    for (x= 0; x < width; x++, pt++, ps += depth) {
-      // *pt= *ps * K + K_2; // linear
-      *pt= lin_from_srgb[*ps]; // sRGB
+  } else if (encoding == SIGMA) {
+    ensure_init_sigma();
+    for (y= 0; y < height; y++) {
+      if (width > fread(buf, depth, width, file)) {
+        error("Unexpected EOF");
+      }
+      ps= buf + layer;
+      for (x= 0; x < width; x++, pt++, ps += depth) {
+        *pt= sigma_to_lin[*ps];
+      }
     }
-  }
+  } else error("read_image: unknown encoding.");
   free(buf);
   return im;
 }
 
-void write_image(image *im, FILE *file) {
+void write_image(image *im, FILE *file, int encoding) {
   int x, y;
   uchar *buf, *pt;
   short v, *ps;
@@ -208,18 +257,33 @@ void write_image(image *im, FILE *file) {
   assert(buf);
   ps= im->data;
   assert(ps);
-  for (y= 0; y < im->height; y++) {
-    pt= buf;
-    for (x= 0; x < im->width; x++, pt++, ps++) {
-      v= *(ps);
-      if (v < 0) v= 0;
-      else
-      if (v > MAXVAL) v= MAXVAL;
-      // *pt= v / K; // linear
-      *pt= srgb_from_lin[v]; // sRGB
+  if (encoding == SRGB) {
+    ensure_init_srgb();
+    for (y= 0; y < im->height; y++) {
+      pt= buf;
+      for (x= 0; x < im->width; x++, pt++, ps++) {
+        v= *(ps);
+        if (v < 0) *pt= 0;
+        else
+        if (v > MAXVAL) *pt= 255;
+        else *pt= srgb_from_lin[v];
+      }
+      if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
     }
-    if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
-  }
+  } else if (encoding == SIGMA) {
+    ensure_init_sigma();
+    for (y= 0; y < im->height; y++) {
+      pt= buf;
+      for (x= 0; x < im->width; x++, pt++, ps++) {
+        v= *(ps) + MAXVAL;
+        if (v < 0) *pt= 0;
+        else
+        if (v > 2 * MAXVAL) *pt= 255;
+        else *pt= sigma_from_lin[v];
+      }
+      if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
+    }
+  } else error("write_image: unknown encoding.");
   free(buf);
 }
 
@@ -957,7 +1021,7 @@ void calc_statistics(image *im, int verbose) {
 
 image *half_size(image *im) {
   int w= im->width, h= im->height;
-  int x, y, dx, dy;
+  int x, y;
   int w2= w / 2, h2= h / 2;
   image *om= make_image(w2, h2);
   om->ex= im->ex / 2;
