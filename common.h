@@ -21,7 +21,7 @@
 
 typedef struct { // image
   char type;
-  short *data;
+  short *data[4];
   uint width;
   uint height;
   real ex; // height of x in pixels
