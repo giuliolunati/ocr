@@ -26,6 +26,7 @@ if (! topic) {
 - grid STEP ----------- draw grid over image\n\
 - half ---------------------- half down size\n\
 - histo -------------------------- histogram\n\
+- laplacian ------------- negative laplacian\n\
 - norm STRENGTH --------- normalize contrast\n\
 - pag NUM ------------------ set page number\n\
 - quit ------------------- quit w/out output\n\
@@ -277,6 +278,11 @@ int main(int argc, char **args) {
     if (ARG_IS("histo")) {
       v= histogram_of_image(im(1));
       push(v);
+    }
+    else
+    if (ARG_IS("laplacian")) {
+      push(n_laplacian(im(1)));
+      swap(); pop();
     }
     else
     if (ARG_IS("norm")) { // FLOAT

@@ -72,6 +72,7 @@ image *make_image(int width, int height);
 vector *make_vector(uint size);
 void mean_y(image *im, uint d);
 void normalize_image(image *im, real strength);
+image *n_laplacian(image *im);
 image *read_image(FILE *file, int layer, int encoding);
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);

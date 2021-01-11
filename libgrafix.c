@@ -1051,4 +1051,42 @@ image *half_size(image *im) {
   return om;
 }
 
+image *n_laplacian(image *im) {
+  // negative laplacian
+  int w= im->width, h= im->height;
+  int x, y= 0;
+  image *om= make_image(w, h);
+  om->ex= im->ex;
+  om->pag= im->pag;
+  short *i, *iu, *id, *il, *ir, *o, *end;
+  real v;
+  
+  i= im->data;
+  end= i + (w * h);
+  o= om->data;
+  iu= i - w;
+  il= i - 1; ir= i + 1;
+  id= i + w;
+  // y = 0 
+  for (x=0; x<w; x++,i++,iu++,id++,il++,ir++,o++) {
+    if (x == 0 || x == w - 1) {
+      *o= 0;
+    } else *o= (real) 2 * *i - *il - *ir;
+  }
+  for (y=1; y < h-1; y++) { 
+    for (x=0; x<w; x++,i++,iu++,id++,il++,ir++,o++) {
+      if (x == 0 || x == w - 1) {
+        *o= (real) 2 * *i - *iu - *id;
+      } else *o= (real) 4 * *i - *iu - *id - *il - *ir;
+    }
+  }
+  // y = h-1
+  for (x=0; x<w; x++,i++,iu++,id++,il++,ir++,o++) {
+    if (x == 0 || x == w - 1) {
+      *o= 0;
+    } else *o= (real) 2 * *i - *il - *ir;
+  }
+  return om;
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:
