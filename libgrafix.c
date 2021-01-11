@@ -174,7 +174,7 @@ image *make_image(int width, int height) {
   im= malloc(sizeof(image));
   if (! im) return NULL;
   im->type= 'I';
-  im->data[0]= data;
+  im->channel[0]= data;
   im->width= width;
   im->height= height;
   im->ex= default_ex;
@@ -186,7 +186,7 @@ image *make_image(int width, int height) {
 
 void destroy_image(image *im) {
   if (! im) return;
-  if (im->data[0]) free(im->data[0]);
+  if (im->channel[0]) free(im->channel[0]);
   free(im);
 }
 
@@ -226,7 +226,7 @@ image *read_image(FILE *file, int layer, int encoding) {
   im= make_image(width, height);
   if (!im) error("Cannot make image.");;
   buf= malloc(width * depth);
-  pt= im->data[0];
+  pt= im->channel[0];
   if (encoding == SRGB) {
     ensure_init_srgb();
     for (y= 0; y < height; y++) {
@@ -262,7 +262,7 @@ void write_image(image *im, FILE *file, int encoding) {
   fprintf(file, "P5\n%d %d\n255\n", im->width, im->height);
   buf= malloc(im->width * sizeof(*buf));
   assert(buf);
-  ps= im->data[0];
+  ps= im->channel[0];
   assert(ps);
   if (encoding == SRGB) {
     ensure_init_srgb();
@@ -301,7 +301,7 @@ image *rotate_90_image(image *im, int angle) {
   om->ex= im->ex;
   om->pag= im->pag;
   short *i, *o;
-  i= im->data[0]; o= om->data[0];
+  i= im->channel[0]; o= om->channel[0];
   switch ((int)angle) {
     case 90:
     case -270:
@@ -346,9 +346,9 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
   uint w2= w - w1;
   image* im1= make_image(w1, h);
   image* im2= make_image(w2, h);
-  p= im->data[0];
-  p1= im1->data[0];
-  p2= im2->data[0];
+  p= im->channel[0];
+  p1= im1->channel[0];
+  p2= im2->channel[0];
   for (y= 0; y < h; y++, p += w, p1 += w1, p2 += w2) {
     memcpy(p1, p, w1 * sizeof(short));
     memcpy(p2, p + w1, w2 * sizeof(short));
@@ -371,8 +371,8 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   image* im2= make_image(w, h2);
   l1= w * h1;
   l2= w * h2;
-  memcpy(im1->data[0], im->data[0], l1 * sizeof(short));
-  memcpy(im2->data[0], im->data[0] + l1, l2 * sizeof(short));
+  memcpy(im1->channel[0], im->channel[0], l1 * sizeof(short));
+  memcpy(im2->channel[0], im->channel[0] + l1, l2 * sizeof(short));
   im1->pag= im->pag;
   im2->pag= im->pag + 1;
   *out1= im1;
@@ -391,8 +391,8 @@ image *image_background(image *im) {
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
   v1= malloc(w * sizeof(*v1));
-  short *pi= im->data[0];
-  short *po= om->data[0];
+  short *pi= im->channel[0];
+  short *po= om->channel[0];
   for (y= 0; y < h; y++) {
     for (x= 0; x < w; x++) v1[x]= *(pi++);
     for (x= 1; x < w; x++) {
@@ -412,8 +412,8 @@ image *image_background(image *im) {
     }
     memcpy(v0, v1, w * sizeof(*v0));
   }
-  assert(pi == im->data[0] + w * h);
-  assert(po == om->data[0] + w * h);
+  assert(pi == im->channel[0] + w * h);
+  assert(po == om->channel[0] + w * h);
   for (y= 1; y < h; y++) {
     po -= w;
     for (x= w - 1; x >= 0; x--) v1[x]= *(--po);
@@ -426,7 +426,7 @@ image *image_background(image *im) {
     }
     memcpy(v0, v1, w * sizeof(*v0));
   }
-  assert(po == om->data[0] + w);
+  assert(po == om->channel[0] + w);
   free(v0); free(v1);
   return om;
 }
@@ -437,7 +437,7 @@ void divide_image(image *a, image *b) {
   int i;
   short *pa, *pb;
   if (b->height != h || b->width != w) error("Dimensions mismatch.");
-  pa= a->data[0]; pb= b->data[0];
+  pa= a->channel[0]; pb= b->channel[0];
   for (i= 0; i < w * h; i++) {
     *pa= (real)*pa / *pb * MAXVAL;
     pa++; pb++;
@@ -447,7 +447,7 @@ void divide_image(image *a, image *b) {
 vector *histogram_of_image(image *im) {
   vector *hi= make_vector(256);
   hi->len= hi->size;
-  short *p= im->data[0];
+  short *p= im->channel[0];
   real *d= hi->data;
   int x, y, h= im->height, w= im->width;
   for (y= 0; y < h; y++) {
@@ -464,12 +464,12 @@ vector *histogram_of_image(image *im) {
 }
 
 void contrast_image(image *im, real black, real white) {
-  short *end= im->data[0] + (im->width * im->height);
+  short *end= im->channel[0] + (im->width * im->height);
   short *p;
   black *= MAXVAL;
   white *= MAXVAL;
   if (white == black) {
-    for (p= im->data[0]; p < end; p++) {
+    for (p= im->channel[0]; p < end; p++) {
       if (*p <= black) *p= 0;
       else *p= MAXVAL;
     }
@@ -478,7 +478,7 @@ void contrast_image(image *im, real black, real white) {
   real a= MAXVAL / (white - black) ;
   real b= -a * black;
   if (black < white) {
-    for (p= im->data[0]; p < end; p++) {
+    for (p= im->channel[0]; p < end; p++) {
       if (*p <= black) *p= 0;
       else if (*p >= white) *p= MAXVAL;
       else *p= *p * a + b;
@@ -486,7 +486,7 @@ void contrast_image(image *im, real black, real white) {
     return;
   }
   else { // white < black
-    for (p= im->data[0]; p < end; p++) {
+    for (p= im->channel[0]; p < end; p++) {
       if (*p >= black) *p= 0;
       else if (*p <= white) *p= MAXVAL;
       else *p= *p * a + b;
@@ -558,13 +558,13 @@ void shearx_image(image *im, real t) {
   short *end, *p, *a, *b;
   short *buf= malloc(w * sizeof(*buf));
   for (y= 0; y < h; y++) {
-    memcpy(buf, im->data[0] + (w * y), w * sizeof(*buf));
+    memcpy(buf, im->channel[0] + (w * y), w * sizeof(*buf));
     dr= ((int)y - (int)h/2) * t;
     di= floor(dr);
     df= dr - di;
     if (di > 0) {
       cb= df; ca= 1 - cb;
-      p= im->data[0] + (w * y);
+      p= im->channel[0] + (w * y);
       end= p + w;
       b= buf + di;
       a= b - 1;
@@ -572,7 +572,7 @@ void shearx_image(image *im, real t) {
       for (; p < end; p++) *p= MAXVAL;
     } else {
       cb= df; ca= 1 - cb;
-      p= im->data[0] + (w * y) + w - 1;
+      p= im->channel[0] + (w * y) + w - 1;
       end= p - w;
       b= buf + w - 1 + di;
       a= b - 1;
@@ -598,12 +598,12 @@ void sheary_image(image *im, real t) {
     di[x]= floor(dr) * w;
     df[x]= dr - floor(dr);
   }
-  end= im->data[0] + (w * h);
+  end= im->channel[0] + (w * h);
   // down
   if (t > 0) {a= 0; b= w/2;}
   else  {a= w/2; b= w;}
   for (y= 0; y < h; y++) {
-    p= im->data[0] + (y * w) + a;
+    p= im->channel[0] + (y * w) + a;
     for (x= a; x < b; x++, p++) {
       d= di[x];
       f= df[x];
@@ -614,7 +614,7 @@ void sheary_image(image *im, real t) {
       }
     }
     memcpy(
-      im->data[0] + y * w + a,
+      im->channel[0] + y * w + a,
       buf + a ,
       (b - a) * sizeof(*buf)
     );
@@ -622,7 +622,7 @@ void sheary_image(image *im, real t) {
   if (t > 0) {a= w/2; b= w;}
   else  {a= 0; b= w/2;}
   for (y= h - 1; y >= 0; y--) { // y MUST be signed!
-    p= im->data[0] + (y * w) + a;
+    p= im->channel[0] + (y * w) + a;
     for (x= a; x < b; x++, p++) {
       d= di[x];
       f= df[x];
@@ -631,7 +631,7 @@ void sheary_image(image *im, real t) {
         buf[x]= *p;
       }
       else
-      if (p + d >= im->data[0]) {
+      if (p + d >= im->channel[0]) {
         buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
       }
       else {
@@ -639,7 +639,7 @@ void sheary_image(image *im, real t) {
       }
     }
     memcpy(
-      im->data[0] + y * w + a,
+      im->channel[0] + y * w + a,
       buf + a ,
       (b - a) * sizeof(*buf)
     );
@@ -673,9 +673,9 @@ void mean_y(image *im, uint d) {
     r= v + w * i;
     i= (i+d) % (d+1);
     r1= v + w * i;
-    p= im->data[0] + y * w;
+    p= im->channel[0] + y * w;
     i= y - d/2;
-    if (y >= d) q= im->data[0] + i * w;
+    if (y >= d) q= im->channel[0] + i * w;
     else q= 0;
     end= p + w;
     for (; p < end; p++, r1++, r++, rd++) {
@@ -693,7 +693,7 @@ real skew_score(int d, image *test, vector *v) {
   short *pt;
   clear_vector(v);
   for (y= 0; y < h; y++) {
-    pt= test->data[0] + y * w;
+    pt= test->channel[0] + y * w;
     x= 0;
     for (i= 0; i <= abs(d); i++) {
       if (d >= 0) {j= y + i;} else {j= y + w - i;} 
@@ -713,9 +713,9 @@ real detect_skew(image *im) {
   image *test= make_image(w, h - 1);
   short *p1, *p2, *pt, *end;
   for (y= 0; y < h - 1; y++) {
-    p1= im->data[0] + y * w;
+    p1= im->channel[0] + y * w;
     end= p2= p1 + w;
-    pt= test->data[0] + y * w;
+    pt= test->channel[0] + y * w;
     for (; p1 < end; p1++, p2++, pt++) {
       t= abs(*p1 - *p2);
       *pt= t;
@@ -724,7 +724,7 @@ real detect_skew(image *im) {
   }
   s= sqrt(s / w / (h - 1));
   for (y= 0; y < h - 1; y++) {
-    pt= test->data[0] + y * w;
+    pt= test->channel[0] + y * w;
     end= pt + w;
     for (; pt < end; pt++) {
       if (*pt < s) {*pt= 0;}
@@ -766,8 +766,8 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   out->ex= im->ex;
   out->pag= im->pag;
   for (i= 0; i < h1; i++) {
-    s= im->data[0] + (i + y1) * w + x1; 
-    t= out->data[0] + i * w1;
+    s= im->channel[0] + (i + y1) * w + x1; 
+    t= out->channel[0] + i * w1;
     memcpy(t, s, w1 * sizeof(*s));
   }
   return out;
@@ -832,7 +832,7 @@ image *autocrop(image *im, int width, int height) {
 
   // calc vx
   for (i= 0; i < h - 1; i++, py++) {
-    p= im->data[0] + i * w;
+    p= im->channel[0] + i * w;
     end= p + w - 1;
     px= vx->data;
     for (; p < end; p++, px++) {
@@ -846,7 +846,7 @@ image *autocrop(image *im, int width, int height) {
   // calc vy
   py= vy->data;
   for (i= 0; i < h - 1; i++, py++) {
-    p= im->data[0] + i * w + x1;
+    p= im->channel[0] + i * w + x1;
     end= p + width - 1;
     for (; p < end; p++, px++) {
       if (*p / k != *(p + 1) / k) (*py)++;
@@ -875,7 +875,7 @@ void draw_grid(image *im, int stepx, int stepy) {
   short *p;
 
   for (y= 0; y < h; y++) {
-    p= im->data[0] + y * w;
+    p= im->channel[0] + y * w;
     for(x= 0; x < w; x++, p++) {
       if (
         y % sbigy == 0 ||
@@ -903,10 +903,10 @@ image *double_size(image *im, real k /*hardness*/) {
   c= c * (1 - k) + c1 * k;
 
   for (y= 0; y < h; y++) {
-    i4= i3= im->data[0] + (w * y);
+    i4= i3= im->channel[0] + (w * y);
     if (y == 0) {i1= i3; i2= i4;}
     else {i1= i3 - w; i2= i4 - w;}
-    o= om->data[0] + (4 * w * y);
+    o= om->channel[0] + (4 * w * y);
     for (x= 0; x < w; x++) {
       v= a * *i4
         + b * (*i3 + *i2)
@@ -919,10 +919,10 @@ image *double_size(image *im, real k /*hardness*/) {
         + c * *i2 ;
       *o= v; o++;
     }
-    i1= i2= im->data[0] + (w * y);
+    i1= i2= im->channel[0] + (w * y);
     if (y == h - 1) {i3= i1; i4= i2;}
     else {i3= i1 + w; i4= i2 + w;}
-    o= om->data[0] + (4 * w * y) + (2 * w);
+    o= om->channel[0] + (4 * w * y) + (2 * w);
     for (x= 0; x < w; x++) {
       v= a * *i2
         + b * (*i1 + *i4)
@@ -945,7 +945,7 @@ void darker_image(image *a, image *b) {
   int i;
   short *pa, *pb;
   if (b->height != h || b->width != w) error("Dimensions mismatch.");
-  pa= a->data[0]; pb= b->data[0];
+  pa= a->channel[0]; pb= b->channel[0];
   for (i= 0; i < w * h; i++) {
     if (*pa > *pb) { *pa= *pb; };
     pa++; pb++;
@@ -968,7 +968,7 @@ void calc_statistics(image *im, int verbose) {
   real area, border, thickness, black, gray, white;
   int i, x, y, t;
   int h= im->height, w= im->width;
-  short *pi= im->data[0];
+  short *pi= im->channel[0];
   short *px= pi + 1;
   short *py= pi + w;
   short a, b, c;
@@ -1037,10 +1037,10 @@ image *half_size(image *im) {
   real v;
 
   for (y= 0; y < h; y += 2) {
-    i1= im->data[0] + (w * y); i2= i1 + 1;
+    i1= im->channel[0] + (w * y); i2= i1 + 1;
     if (y == h - 1) {i3= i1; i4= i2;}
     else {i3= i1 + w; i4= i2 + w;}
-    o= om->data[0] + (w2 * y / 2);
+    o= om->channel[0] + (w2 * y / 2);
     for (x= 0; x < w; x += 2) {
       v= (*i1 + *i2 + *i3 + *i4) / 4;
       *o= v; o++;
@@ -1061,9 +1061,9 @@ image *n_laplacian(image *im) {
   short *i, *iu, *id, *il, *ir, *o, *end;
   real v;
   
-  i= im->data[0];
+  i= im->channel[0];
   end= i + (w * h);
-  o= om->data[0];
+  o= om->channel[0];
   iu= i - w;
   il= i - 1; ir= i + 1;
   id= i + w;
