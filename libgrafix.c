@@ -29,27 +29,30 @@ void ensure_init_srgb() {
   srgb_to_lin= realloc(srgb_to_lin, 256);
   srgb_from_lin= realloc(srgb_from_lin, MAXVAL + 1);
   float x, x0= 0;
-  int l= 0;
+  int l0= 0, l= 0;
   int s;
   for (s= 1; s <= 256; s ++) {
     x= s / 256.0;
     // sRGB map [0, 1] -> [0, 1]
     if (x < 0.04045) x /= 12.92;
-    else x= pow(x, 2.4);
+    else x= pow( (x + 0.055) / 1.055, 2.4 );
     //
     while (l + 0.5 < x * (MAXVAL + 1)) {
-      srgb_from_lin[l]= s;
+      srgb_from_lin[l]= s-1;
       l ++;
     }
-    srgb_to_lin[s-1]= (x + x0) / 2 * (MAXVAL + 1);
-    x0= x;
+    srgb_to_lin[s-1]= l0= (l0 + l) / 2;
+    x0= x; l0= l;
   }
   while (l <= MAXVAL) {
     srgb_from_lin[l]= 255;
     l ++;
   }
   assert(srgb_to_lin[255] <= MAXVAL);
-  assert(srgb_from_lin[MAXVAL]= 255);
+  assert(srgb_from_lin[MAXVAL] == 255);
+  for (s= 0; s <= 255; s ++) assert(
+    s == (l=srgb_from_lin[srgb_to_lin[s]])
+  );
 }
 
 short *sigma_to_lin= NULL;
@@ -81,6 +84,10 @@ void ensure_init_sigma() {
   assert(sigma_from_lin[0] == 1);
   assert(sigma_from_lin[MAXVAL] == 128);
   assert(sigma_from_lin[2*MAXVAL] == 255);
+  for (s= 0; s <= 255; s ++) assert(
+    s == (l=srgb_from_lin[srgb_to_lin[s]])
+  );
+
 }
 
 //// VECTORS ////
