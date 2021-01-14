@@ -41,7 +41,7 @@ void ensure_init_srgb() {
       srgb_from_lin[l]= s-1;
       l ++;
     }
-    srgb_to_lin[s-1]= l0= (l0 + l) / 2;
+    srgb_to_lin[s-1]= l0= (l0 + l - 1) / 2;
     x0= x; l0= l;
   }
   while (l <= MAXVAL) {
@@ -51,7 +51,7 @@ void ensure_init_srgb() {
   assert(srgb_to_lin[255] <= MAXVAL);
   assert(srgb_from_lin[MAXVAL] == 255);
   for (s= 0; s <= 255; s ++) assert(
-    s == (l=srgb_from_lin[srgb_to_lin[s]])
+    s == (srgb_from_lin[srgb_to_lin[s]])
   );
 }
 
@@ -59,22 +59,22 @@ short *sigma_to_lin= NULL;
 uchar *sigma_from_lin= NULL;
 
 void ensure_init_sigma() {
-  short s, l;
   if (sigma_to_lin && sigma_from_lin) return;
   sigma_to_lin= realloc(sigma_to_lin, 256);
   sigma_from_lin= realloc(sigma_from_lin, 2 * MAXVAL + 1);
   double y, y0, k= 0.04662964128062114; // sh(kX) = kY
-  l= -MAXVAL;
+  int l0= -MAXVAL, l= -MAXVAL;
+  int s;
   for (s= -1; s < 256; s ++) {
     y= exp( ((double)s - 128 + 0.5) * k );
     y = (y - 1/y) / 2 / k;
     if (s < 0) { y0= y; continue; }
-    sigma_to_lin[s]= (y + y0) / 2;
-    y0= y;
     while (l + 0.5 < y) {
       sigma_from_lin[l + MAXVAL]= s;
       l ++;
     }
+    sigma_to_lin[s]= (l + l0 - 1) / 2 + MAXVAL;
+    y0= y; l0= l;
   }
   while (l <= MAXVAL) {
     sigma_from_lin[l + MAXVAL]= 255;
@@ -84,8 +84,8 @@ void ensure_init_sigma() {
   assert(sigma_from_lin[0] == 1);
   assert(sigma_from_lin[MAXVAL] == 128);
   assert(sigma_from_lin[2*MAXVAL] == 255);
-  for (s= 0; s <= 255; s ++) assert(
-    s == (l=srgb_from_lin[srgb_to_lin[s]])
+  for (s= 1; s <= 255; s ++) assert(
+    s == (sigma_from_lin[sigma_to_lin[s]])
   );
 
 }
@@ -103,7 +103,7 @@ vector *make_vector(uint size) {
   v->len= 0;
   v->x0= 0.0;
   v->dx= 1.0;
-  v->type= 'V';
+  v->magic= 'V';
   return v;
 }
 
@@ -165,18 +165,22 @@ uint index_of_max(vector *v) {
 
 real default_ex= 25;
 
-image *make_image(int width, int height) {
-  image *im;
-  short *data;
-  if (height < 1 || width < 1) return NULL;
-  data= calloc(width * height, sizeof(short));
-  if (! data) return NULL;
-  im= malloc(sizeof(image));
-  if (! im) return NULL;
-  im->type= 'I';
-  im->channel[0]= data;
+image *make_image(int width, int height, int depth) {
+  assert(1 <= depth && depth <= 4);
+  if (height < 1 || width < 1) error("make_image: size <= 0");
+  int i;
+  short *p;
+  image *im= malloc(sizeof(image));
+  if (! im) error("make_image: can't alloc memory");
+  for (i= 0; i < depth; i ++) {
+    p= calloc (width * height, sizeof(*p));
+    if (! p) error("make_image: can't alloc memory");
+    im->channel[i]= p;
+  } for (; i < 4; i ++) im->channel[i]= NULL;
+  im->magic= 'I';
   im->width= width;
   im->height= height;
+  im->depth= depth;
   im->ex= default_ex;
   im->pag= 0;
   im->black= im->gray= im->white= -1;
@@ -186,143 +190,186 @@ image *make_image(int width, int height) {
 
 void destroy_image(image *im) {
   if (! im) return;
-  if (im->channel[0]) free(im->channel[0]);
+  int i;
+  for (i= 0; i < 4; i ++) {
+    if (im->channel[i]) free(im->channel[i]);
+  }
   free(im);
 }
 
-image *read_image(FILE *file, int layer, int encoding) {
-  int x, y, type, depth, height, width, binary;
+image *read_image(FILE *file, int encoding) {
+  int x, y, prec, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
-  short *pt;
+  ulong i;
+  int z;
   char c;
+  short *p;
   if (1 > fscanf(file, "P%d ", &depth)) {
-    error("Not a PNM file - wrong magic.");
+    error("read_image: wrong magic.");
   }
   if (1 > fscanf(file, "%d ", &width)) {
-    error("Not a PNM file - wrong width.");
+    error("read_image: wrong width.");
   }
   if (1 > fscanf(file, "%d ", &height)) {
-    error("Not a PNM file - wrong height.");
+    error("read_image: wrong height.");
   }
-  if (1 > fscanf(file, "%d", &type)) {
-    error("Not a PNM file - wrong type.");
+  if (1 > fscanf(file, "%d", &prec)) {
+    error("read_image: wrong precision");
   }
   if (1 > fscanf(file, "%c", &c) || 
     (c != ' ' && c != '\t' && c != '\n')
   ) {
-    error("Not a PNM file - no w/space after type");
+    error("read_image: no w/space after precision");
   }
   switch (depth) {
     case 5: depth= 1; break;
     case 6: depth= 3; break;
-    default: error("Invalid depth.");
+    default: error("read_image: Invalid depth.");
   }
-  switch (type) {
+  switch (prec) {
     case 255: break;
-    default: error("Invalid bits.");
+    default: error("read_image: Precision != 255.");
   }
-  if (width < 1 || height < 1) error("Invalid dimensions.");
-  im= make_image(width, height);
-  if (!im) error("Cannot make image.");;
+  if (width < 1 || height < 1) error("read_image: Invalid dimensions.");
+  im= make_image(width, height, depth);
+  if (!im) error("read_image: Cannot make image.");;
+  assert(1 <= depth && depth <= 4);
   buf= malloc(width * depth);
-  pt= im->channel[0];
   if (encoding == SRGB) {
     ensure_init_srgb();
+    i= 0;
     for (y= 0; y < height; y++) {
       if (width > fread(buf, depth, width, file)) {
-        error("Unexpected EOF");
+        error("read_image: Unexpected EOF");
       }
-      ps= buf + layer;
-      for (x= 0; x < width; x++, pt++, ps += depth) {
-        *pt= srgb_to_lin[*ps];
+      ps= buf;
+      for (x= 0; x < width; x++, i++) {
+        for (z= 0; z < depth; z++, ps++) {
+          *(im->channel[z] + i)= srgb_to_lin[*ps];
+        }
       }
     }
   } else if (encoding == SIGMA) {
     ensure_init_sigma();
+    i= 0;
     for (y= 0; y < height; y++) {
       if (width > fread(buf, depth, width, file)) {
-        error("Unexpected EOF");
+        error("read_image: Unexpected EOF");
       }
-      ps= buf + layer;
-      for (x= 0; x < width; x++, pt++, ps += depth) {
-        *pt= sigma_to_lin[*ps];
+      ps= buf;
+      for (x= 0; x < width; x++, i++) {
+        for (z= 0; z < depth; z++, ps++) {
+          *(im->channel[z] + i)= sigma_to_lin[*ps];
+        }
       }
     }
   } else error("read_image: unknown encoding.");
+  if (depth > 2) {
+  // RGB -> GBR, sono channel[0] is GReen/GRay ;-)
+    p= im->channel[0];
+    im->channel[0]= im->channel[1];
+    im->channel[1]= im->channel[2];
+    im->channel[2]= p;
+  }
   free(buf);
   return im;
 }
 
 void write_image(image *im, FILE *file, int encoding) {
   int x, y;
+  int width= im->width, height= im->height, depth=im->depth;
   uchar *buf, *pt;
-  short v, *ps;
+  short v, *p;
+  ulong i;
+  int z;
   assert(file);
-  fprintf(file, "P5\n%d %d\n255\n", im->width, im->height);
-  buf= malloc(im->width * sizeof(*buf));
+  assert(1 <= depth && depth <= 4);
+  if (depth > 2) { // GBR -> RGB
+    p= im->channel[2];
+    im->channel[2]= im->channel[1];
+    im->channel[1]= im->channel[0];
+    im->channel[0]= p;
+  }
+  if (depth == 1) fprintf(file, "P5\n");
+  else if (depth == 3) fprintf(file, "P6\n");
+  else error("write_image: depth should be 1 or 3");
+  fprintf(file, "%d %d\n255\n", width, height);
+  buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
-  ps= im->channel[0];
-  assert(ps);
   if (encoding == SRGB) {
     ensure_init_srgb();
-    for (y= 0; y < im->height; y++) {
+    i= 0;
+    for (y= 0; y < height; y++) {
       pt= buf;
-      for (x= 0; x < im->width; x++, pt++, ps++) {
-        v= *(ps);
-        if (v < 0) *pt= 0;
-        else
-        if (v > MAXVAL) *pt= 255;
-        else *pt= srgb_from_lin[v];
+      for (x= 0; x < width; x++, i++) {
+        for (z= 0; z < depth; z++, pt++) {
+          v= *(im->channel[z] + i);
+          if (v < 0) *pt= 0;
+          else
+          if (v > MAXVAL) *pt= 255;
+          else *pt= srgb_from_lin[v];
+        }
       }
-      if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
+      if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
   } else if (encoding == SIGMA) {
     ensure_init_sigma();
-    for (y= 0; y < im->height; y++) {
+    i= 0;
+    for (y= 0; y < height; y++) {
       pt= buf;
-      for (x= 0; x < im->width; x++, pt++, ps++) {
-        v= *(ps) + MAXVAL;
-        if (v < 0) *pt= 0;
-        else
-        if (v > 2 * MAXVAL) *pt= 255;
-        else *pt= sigma_from_lin[v];
+      for (x= 0; x < width; x++, i++) {
+        for (z= 0; z < depth; z++, pt++) {
+          v= *(im->channel[z] + i) + MAXVAL;
+          if (v < 0) *pt= 0;
+          else
+          if (v > 2 * MAXVAL) *pt= 255;
+          else *pt= sigma_from_lin[v];
+        }
       }
-      if (im->width > fwrite(buf, 1, im->width, file)) error("Error writing file.");
+      if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
   } else error("write_image: unknown encoding.");
   free(buf);
+  if (depth > 2) { // RGB -> GBR
+    p= im->channel[0];
+    im->channel[0]= im->channel[1];
+    im->channel[1]= im->channel[2];
+    im->channel[2]= p;
+  }
 }
 
 image *rotate_90_image(image *im, int angle) {
   int w= im->width, h= im->height;
-  int x, y, dx, dy;
-  image *om= make_image(h, w);
+  int x, y, z, dx, dy;
+  image *om= make_image(h, w, im->depth);
   om->ex= im->ex;
   om->pag= im->pag;
   short *i, *o;
-  i= im->channel[0]; o= om->channel[0];
-  switch ((int)angle) {
-    case 90:
-    case -270:
-      o += h - 1; dx= h; dy= -1;
-      break;
-    case 180:
-    case -180:
-      om->width= w; om->height= h;
-      o += h * w - 1; dx= -1; dy= -w;
-      break;
-    case 270:
-    case -90:
-      o += h * w - h; dx= -h; dy= 1;
-      break;
-    default: assert(0);
-  }
-  for (y= 0; y < h; y++) {
-    for (x= 0; x < w; x++) {
-      *o= *i; i++; o += dx;
+  for (z= 0; z < im->depth; z++) {
+    i= im->channel[z]; o= om->channel[z];
+    switch ((int)angle) {
+      case 90:
+      case -270:
+        o += h - 1; dx= h; dy= -1;
+        break;
+      case 180:
+      case -180:
+        om->width= w; om->height= h;
+        o += h * w - 1; dx= -1; dy= -w;
+        break;
+      case 270:
+      case -90:
+        o += h * w - h; dx= -h; dy= 1;
+        break;
+      default: assert(0);
     }
-    o += dy - w * dx;
+    for (y= 0; y < h; y++) {
+      for (x= 0; x < w; x++) {
+        *o= *i; i++; o += dx;
+      }
+      o += dy - w * dx;
+    }
   }
   return om;
 }
@@ -340,18 +387,20 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
   if (x == 1) error("x must be != 1.");
   if (x > 1) x= 1/x;
   short *p, *p1, *p2;
-  uint y, h= im->height;
+  uint z, y, h= im->height;
   uint w= im->width;
   uint w1= w * x;
   uint w2= w - w1;
-  image* im1= make_image(w1, h);
-  image* im2= make_image(w2, h);
-  p= im->channel[0];
-  p1= im1->channel[0];
-  p2= im2->channel[0];
-  for (y= 0; y < h; y++, p += w, p1 += w1, p2 += w2) {
-    memcpy(p1, p, w1 * sizeof(short));
-    memcpy(p2, p + w1, w2 * sizeof(short));
+  image* im1= make_image(w1, h, im->depth);
+  image* im2= make_image(w2, h, im->depth);
+  for (z= 0; z < im->depth; z++) {
+    p= im->channel[z];
+    p1= im1->channel[z];
+    p2= im2->channel[z];
+    for (y= 0; y < h; y++, p += w, p1 += w1, p2 += w2) {
+      memcpy(p1, p, w1 * sizeof(short));
+      memcpy(p2, p + w1, w2 * sizeof(short));
+    }
   }
   im1->pag= im->pag;
   im2->pag= im->pag + 1;
@@ -363,16 +412,18 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   if (y <= 0) error("y must be > 0.");
   if (y == 1) error("y must be != 1.");
   if (y > 1) y= 1/y;
-  uint w= im->width;
+  uint z, w= im->width;
   ulong l1, l2; 
   uint h1= im->height * y;
   uint h2= im->height - h1;
-  image* im1= make_image(w, h1);
-  image* im2= make_image(w, h2);
+  image* im1= make_image(w, h1, im->depth);
+  image* im2= make_image(w, h2, im->depth);
   l1= w * h1;
   l2= w * h2;
-  memcpy(im1->channel[0], im->channel[0], l1 * sizeof(short));
-  memcpy(im2->channel[0], im->channel[0] + l1, l2 * sizeof(short));
+  for (z= 0; z < im->depth; z++) {
+    memcpy(im1->channel[z], im->channel[z], l1 * sizeof(short));
+    memcpy(im2->channel[z], im->channel[z] + l1, l2 * sizeof(short));
+  }
   im1->pag= im->pag;
   im2->pag= im->pag + 1;
   *out1= im1;
@@ -385,48 +436,49 @@ image *image_background(image *im) {
   if (d <= 0) d= default_ex;
   d= 0.333 / d;
   d= exp(-d);
-  int x, y, h= im->height, w= im->width;
-  image *om= make_image(w, h);
+  int x, y, z, h= im->height, w= im->width;
+  image *om= make_image(w, h, im->depth);
   om->ex= im->ex;
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
   v1= malloc(w * sizeof(*v1));
-  short *pi= im->channel[0];
-  short *po= om->channel[0];
-  for (y= 0; y < h; y++) {
-    for (x= 0; x < w; x++) v1[x]= *(pi++);
-    for (x= 1; x < w; x++) {
-      t= v1[x - 1] * d;
-      if (v1[x] < t) v1[x]= t;
+  short *pi;
+  short *po;
+  for (z= 0; z < im->depth; z++) {
+    pi= im->channel[z];
+    po= om->channel[z];
+    for (y= 0; y < h; y++) {
+      for (x= 0; x < w; x++) v1[x]= *(pi++);
+      for (x= 1; x < w; x++) {
+        t= v1[x - 1] * d;
+        if (v1[x] < t) v1[x]= t;
+      }
+      for (x= w - 2; x >= 0; x--) {
+        t= v1[x + 1] * d;
+        if (v1[x] < t) v1[x]= t;
+      }
+      if (y > 0) for (x= 0; x < w; x++) {
+        t= v0[x] * d;
+        if (v1[x] < t) v1[x]= t;
+      }
+      for (x= 0; x < w; x++) {
+        *(po++)= round(v1[x]);
+      }
+      memcpy(v0, v1, w * sizeof(*v0));
     }
-    for (x= w - 2; x >= 0; x--) {
-      t= v1[x + 1] * d;
-      if (v1[x] < t) v1[x]= t;
+    for (y= 1; y < h; y++) {
+      po -= w;
+      for (x= w - 1; x >= 0; x--) v1[x]= *(--po);
+      for (x= 0; x < w; x++) {
+        t= v0[x] * d;
+        if (v1[x] < t) v1[x]= t;
+      }
+      for (x= 0; x < w; x++, po++) {
+        *(po)= round(v1[x]);
+      }
+      memcpy(v0, v1, w * sizeof(*v0));
     }
-    if (y > 0) for (x= 0; x < w; x++) {
-      t= v0[x] * d;
-      if (v1[x] < t) v1[x]= t;
-    }
-    for (x= 0; x < w; x++) {
-      *(po++)= round(v1[x]);
-    }
-    memcpy(v0, v1, w * sizeof(*v0));
   }
-  assert(pi == im->channel[0] + w * h);
-  assert(po == om->channel[0] + w * h);
-  for (y= 1; y < h; y++) {
-    po -= w;
-    for (x= w - 1; x >= 0; x--) v1[x]= *(--po);
-    for (x= 0; x < w; x++) {
-      t= v0[x] * d;
-      if (v1[x] < t) v1[x]= t;
-    }
-    for (x= 0; x < w; x++) {
-      *(po++)= round(v1[x]);
-    }
-    memcpy(v0, v1, w * sizeof(*v0));
-  }
-  assert(po == om->channel[0] + w);
   free(v0); free(v1);
   return om;
 }
@@ -434,20 +486,25 @@ image *image_background(image *im) {
 void divide_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
-  int i;
+  int depth= a->depth;
+  int i, z;
   short *pa, *pb;
-  if (b->height != h || b->width != w) error("Dimensions mismatch.");
-  pa= a->channel[0]; pb= b->channel[0];
-  for (i= 0; i < w * h; i++) {
-    *pa= (real)*pa / *pb * MAXVAL;
-    pa++; pb++;
+  if (b->height != h || b->width != w) error("divide_image: size mismatch.");
+  if (b->depth != depth) error("divide_image: depth mismatch.");
+  for (z= 0; z < depth; z++) {
+    pa= a->channel[z]; pb= b->channel[z];
+    assert(pa && pb);
+    for (i= 0; i < w * h; i++) {
+      *pa= (real)*pa / *pb * MAXVAL;
+      pa++; pb++;
+    }
   }
 }
 
-vector *histogram_of_image(image *im) {
+vector *histogram_of_image(image *im, int chan) {
   vector *hi= make_vector(256);
   hi->len= hi->size;
-  short *p= im->channel[0];
+  short *p= im->channel[chan];
   real *d= hi->data;
   int x, y, h= im->height, w= im->width;
   for (y= 0; y < h; y++) {
@@ -466,8 +523,12 @@ vector *histogram_of_image(image *im) {
 void contrast_image(image *im, real black, real white) {
   short *end= im->channel[0] + (im->width * im->height);
   short *p;
+  real a, b;
+  int depth= im->depth;
+  assert(1 <= depth && depth <= 4);
   black *= MAXVAL;
   white *= MAXVAL;
+  if (depth != 1) error("contrast_image: invalid depth");
   if (white == black) {
     for (p= im->channel[0]; p < end; p++) {
       if (*p <= black) *p= 0;
@@ -475,8 +536,9 @@ void contrast_image(image *im, real black, real white) {
     }
     return;
   }
-  real a= MAXVAL / (white - black) ;
-  real b= -a * black;
+  a= MAXVAL / (white - black) ;
+  b= -a * black;
+
   if (black < white) {
     for (p= im->channel[0]; p < end; p++) {
       if (*p <= black) *p= 0;
@@ -485,6 +547,7 @@ void contrast_image(image *im, real black, real white) {
     }
     return;
   }
+
   else { // white < black
     for (p= im->channel[0]; p < end; p++) {
       if (*p >= black) *p= 0;
@@ -496,9 +559,12 @@ void contrast_image(image *im, real black, real white) {
 }
 
 void normalize_image(image *im, real strength) {
-  vector *d, *v= histogram_of_image(im);
+  vector *d, *v= histogram_of_image(im, 0);
   real *p= v->data;
-  int i, b, w;
+  int i, b, w, depth= im->depth;
+
+  if (depth != 1) error("normalize_image: invalid depth");
+
   for (i= 0; i < v->len; i++, p++) {
     *p= log(1 + *p);
   }
@@ -554,6 +620,8 @@ void shearx_image(image *im, real t) {
   uint w= im->width;
   uint y;
   int di;
+  int depth= im->depth;
+  if (depth != 1) error("shearx_image: invalid depth");
   real dr, df, ca, cb, cc, cd;;
   short *end, *p, *a, *b;
   short *buf= malloc(w * sizeof(*buf));
@@ -588,6 +656,8 @@ void sheary_image(image *im, real t) {
   assert(fabs(t) <= 1);
   uint w= im->width;
   uint h= im->height;
+  int depth= im->depth;
+  if (depth != 1) error("shear_y: invalid depth");
   short *p, *end;
   short *buf= malloc(w * sizeof(*buf));
   int d, *di= malloc(w * sizeof(*di));
@@ -650,6 +720,8 @@ void sheary_image(image *im, real t) {
 }
 
 void skew(image* im, real angle) {
+  int depth= im->depth;
+  if (depth != 1) error("skew: invalid depth");
   angle *= M_PI /180;
   if (fabs(angle) > 45) error("skew: angle must be between -45 and 45.");
   real b= sin(angle);
@@ -660,6 +732,8 @@ void skew(image* im, real angle) {
 }
 
 void mean_y(image *im, uint d) {
+  int depth= im->depth;
+  if (depth != 1) error("mean_y: invalid depth");
   uint w= im->width;
   uint h= im->height;
   real *v= calloc(w * (d + 1), sizeof(*v));
@@ -687,6 +761,8 @@ void mean_y(image *im, uint d) {
 }
 
 real skew_score(int d, image *test, vector *v) {
+  int depth= test->depth;
+  if (depth != 1) error("skew_score: invalid depth");
   int i, j, x, y;
   int  w= test->width, h= test->height;
   real t, *p, *end;
@@ -706,11 +782,13 @@ real skew_score(int d, image *test, vector *v) {
 }
 
 real detect_skew(image *im) {
+  int depth= im->depth;
+  if (depth != 1) error("detect_skew: invalid depth");
   int i, y, w1, w= im->width;
   int h= im->height;
   real t, s= 0;
   // create test image
-  image *test= make_image(w, h - 1);
+  image *test= make_image(w, h - 1, im->depth);
   short *p1, *p2, *pt, *end;
   for (y= 0; y < h - 1; y++) {
     p1= im->channel[0] + y * w;
@@ -752,6 +830,8 @@ real detect_skew(image *im) {
 }
 
 image *crop(image *im, int x1, int y1, int x2, int y2) {
+  int depth= im->depth;
+  if (depth != 1) error("crop: invalid depth");
   // 0 <= x1 < x2 <= im->width  
   // 0 <= y1 < y2 <= im->height  
   int w= im->width;
@@ -762,7 +842,7 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   short *s, *t;
   if (x1 < 0 || x2 <= x1 || x2 > w) error("crop: wrong x parameters\n");
   if (y1 < 0 || y2 <= y1 || y2 > h) error("crop: wrong y parameters\n");
-  image *out= make_image(w1, h1);
+  image *out= make_image(w1, h1, im->depth);
   out->ex= im->ex;
   out->pag= im->pag;
   for (i= 0; i < h1; i++) {
@@ -819,6 +899,8 @@ int find_margin(vector *v, int w) {
 }
 
 image *autocrop(image *im, int width, int height) {
+  int depth= im->depth;
+  if (depth != 1) error("autocrop: invalid depth");
   int w= im->width;
   int h= im->height;
   vector *vx= make_vector(w); // x-histogram
@@ -863,6 +945,8 @@ image *autocrop(image *im, int width, int height) {
 }
 
 void draw_grid(image *im, int stepx, int stepy) {
+  int depth= im->depth;
+  if (depth != 1) error("draw_grid: invalid depth");
   int sbigx= stepx * 10;
   int step4x= stepx / 4;
   int step2x= stepx / 2;
@@ -889,9 +973,11 @@ void draw_grid(image *im, int stepx, int stepy) {
 }
 
 image *double_size(image *im, real k /*hardness*/) {
+  int depth= im->depth;
+  if (depth != 1) error("double_size: invalid depth");
   int w= im->width, h= im->height;
   int x, y, dx, dy;
-  image *om= make_image(2 * w, 2 * h);
+  image *om= make_image(2 * w, 2 * h, im->depth);
   om->ex= 2 * im->ex;
   om->pag= im->pag;
   short *i1, *i2, *i3, *i4, *o;
@@ -942,9 +1028,12 @@ image *double_size(image *im, real k /*hardness*/) {
 void darker_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
+  int depth= a->depth;
+  if (depth != 1) error("invalid depth");
   int i;
   short *pa, *pb;
-  if (b->height != h || b->width != w) error("Dimensions mismatch.");
+  if (b->height != h || b->width != w) error("darker_image: size mismatch.");
+  if (b->depth != depth) error("darker_image: depth mismatch.");
   pa= a->channel[0]; pb= b->channel[0];
   for (i= 0; i < w * h; i++) {
     if (*pa > *pb) { *pa= *pb; };
@@ -953,6 +1042,8 @@ void darker_image(image *a, image *b) {
 }
 
 void calc_statistics(image *im, int verbose) {
+  int depth= im->depth;
+  if (depth != 1) error(": invalid depth");
   // threshold histogram
   vector *thr= make_vector(256);
   thr->len= thr->size;
@@ -1027,10 +1118,12 @@ void calc_statistics(image *im, int verbose) {
 }
 
 image *half_size(image *im) {
+  int depth= im->depth;
+  if (depth != 1) error("half_size: invalid depth");
   int w= im->width, h= im->height;
   int x, y;
   int w2= w / 2, h2= h / 2;
-  image *om= make_image(w2, h2);
+  image *om= make_image(w2, h2, im->depth);
   om->ex= im->ex / 2;
   om->pag= im->pag;
   short *i1, *i2, *i3, *i4, *o;
@@ -1052,10 +1145,12 @@ image *half_size(image *im) {
 }
 
 image *n_laplacian(image *im) {
+  int depth= im->depth;
+  if (depth != 1) error("laplacian: invalid depth");
   // negative laplacian
   int w= im->width, h= im->height;
   int x, y= 0;
-  image *om= make_image(w, h);
+  image *om= make_image(w, h, im->depth);
   om->ex= im->ex;
   om->pag= im->pag;
   short *i, *iu, *id, *il, *ir, *o, *end;

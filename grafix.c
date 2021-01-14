@@ -1,8 +1,8 @@
 #include "common.h"
 
 #define EQ(a, b) (0 == strcmp((a), (b)))
-#define IS_IMAGE(p) (((image *)p)->type == 'I')
-#define IS_VECTOR(p) (((vector *)p)->type == 'V')
+#define IS_IMAGE(p) (((image *)p)->magic == 'I')
+#define IS_VECTOR(p) (((vector *)p)->magic == 'V')
 
 void help(char **arg0, char *topic) {
 #define TOPIC(x) EQ((x), topic)
@@ -25,7 +25,7 @@ if (! topic) {
 - fix-bg -------------------- fix background\n\
 - grid STEP ----------- draw grid over image\n\
 - half ---------------------- half down size\n\
-- histo -------------------------- histogram\n\
+- histo CHANNEL ------------------ histogram\n\
 - laplacian ------------- negative laplacian\n\
 - norm STRENGTH --------- normalize contrast\n\
 - pag NUM ------------------ set page number\n\
@@ -109,7 +109,7 @@ int main(int argc, char **args) {
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
     if (ARG_IS("-")) { // see also s:-
-      push(read_image(stdin, 0, SRGB));
+      push(read_image(stdin, SRGB));
     }
     else
     if (ARG_IS("-h") || ARG_IS("--help")) {
@@ -208,7 +208,7 @@ int main(int argc, char **args) {
         i= i + 1;
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, 0, SRGB);
+        img= read_image(f, SRGB);
         if (i == 1) { push(img); }
         else { darker_image(im(1), img); }
       }
@@ -254,9 +254,8 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("fix-bg")) {
-      img= im(1);
-      push(image_background(img));
-      divide_image(im(2), img);
+      push(image_background(im(1)));
+      divide_image(im(2), im(1));
       pop();
     }
     else
@@ -275,8 +274,10 @@ int main(int argc, char **args) {
       swap(); pop();
     }
     else
-    if (ARG_IS("histo")) {
-      v= histogram_of_image(im(1));
+    if (ARG_IS("histo")) { // INT
+      if (! *(++arg)) error("histo: missing channel");
+      i= atoi(*arg);
+      v= histogram_of_image(im(1), 0);
       push(v);
     }
     else
@@ -313,7 +314,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("s:-")) { // -
-      push(read_image(stdin, 0, SIGMA));
+      push(read_image(stdin, SIGMA));
     }
     else
     if (ARG_IS("skew")) { // FLOAT
@@ -408,12 +409,12 @@ int main(int argc, char **args) {
         }
         strcat(cmd, *arg);
         f= popen(cmd, "rb");
-        img= read_image(f, 0, c);
+        img= read_image(f, c);
         pclose(f);
       } else {
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, 0, c);
+        img= read_image(f, c);
         fclose(f);
       }
       if (i > 9999) error("page number > 9999");

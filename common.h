@@ -20,10 +20,11 @@
 // TYPES -- alphabetical order //
 
 typedef struct { // image
-  char type;
+  char magic;
   short *channel[4];
   uint width;
   uint height;
+  int depth;
   real ex; // height of x in pixels
   uint pag;
   real black;
@@ -34,7 +35,7 @@ typedef struct { // image
 } image;
 
 typedef struct { // vector
-  char type;
+  char magic;
   real *data;
   uint len;
   uint size;
@@ -65,15 +66,15 @@ void ensure_init_sigma();
 void error(const char *msg);
 void error1(const char *msg, const char *param);
 image *half_size(image *im);
-vector *histogram_of_image(image *im);
+vector *histogram_of_image(image *im, int chan);
 image *image_background(image *im);
 uint index_of_max(vector *v);
-image *make_image(int width, int height);
+image *make_image(int width, int height, int depth);
 vector *make_vector(uint size);
 void mean_y(image *im, uint d);
 void normalize_image(image *im, real strength);
 image *n_laplacian(image *im);
-image *read_image(FILE *file, int layer, int encoding);
+image *read_image(FILE *file, int encoding);
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);
 void shearx_image(image *im, real t);
