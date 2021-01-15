@@ -63,7 +63,7 @@ vector *make_vector(uint size) {
     error("Can't alloc vector.");
   v->size= size;
   if ( ! (
-    v->data= calloc(size, sizeof(v->data))
+    v->data= calloc(size, sizeof(*(v->data)))
   )) error("Can't alloc vector data.");
   v->len= 0;
   v->x0= 0.0;
@@ -73,13 +73,13 @@ vector *make_vector(uint size) {
 }
 
 void clear_vector(vector *v) {
-  memset(v->data, 0, v->size * sizeof(v->data)); 
+  memset(v->data, 0, v->size * sizeof(*(v->data))); 
 }
 
-void destroy_vector(vector *h) {
-  if (! h) return;
-  if (h->data) free(h->data);
-  free(h);
+void destroy_vector(vector *v) {
+  if (! v) return;
+  if (v->data) free(v->data);
+  free(v);
 }
 
 vector *copy_vector(vector *v0) {
@@ -89,6 +89,41 @@ vector *copy_vector(vector *v0) {
   v->dx= v0->dx;
   memcpy(v->data, v0->data, v->len * sizeof(*(v->data)));
   return v;
+}
+
+void import_vector(vector *v, short *data, int len, int step) {
+  int i;
+  real *pv;
+  short *pd;
+
+  assert(v->size >= len);
+  v->len= len;
+  for (
+    i= 0, pv= v->data, pd= data;
+    i < len;
+    i++, pv++, pd += step
+  ) { *pv= *pd; }
+}
+
+void export_vector(vector *v, short *data, int len, int step) {
+  int i;
+  real *pv;
+  short *pd;
+  assert(v->len == len);
+  for (
+    i= 0, pv= v->data, pd= data;
+    i < len;
+    i++, pv++, pd += step
+  ) { *pd= *pv; }
+}
+
+void write_vector(vector *v, FILE *f) {
+  uint i;
+  real *p= v->data;
+  real x= v->x0;
+  for (i= 0; i < v->len; i++, x += v->dx) {
+    fprintf(f, "%f %f\n", x, p[i]);
+  }
 }
 
 void cumul_vector(vector *v) {
@@ -107,13 +142,21 @@ void diff_vector(vector *v, uint d) {
   }
 }
 
-void write_vector(vector *v, FILE *f) {
-  uint i;
-  real *p= v->data;
-  real x= v->x0;
-  for (i= 0; i < v->len; i++, x += v->dx) {
-    fprintf(f, "%f %f\n", x, p[i]);
-  }
+void poisson_vector(vector *target, vector *nlap) {
+  int len= target->len;
+  if (nlap->len != len - 2) error("poisson_vector: len mismatch");
+  real t;
+  real *d= target->data;
+  real *l= nlap->data;
+  int i;
+  cumul_vector(nlap);
+  l[0] -= d[0];
+  cumul_vector(nlap);
+  t= d[len-1];
+  d[1]= d[0];
+  for (i=2; i<len; i++) { d[i]= -l[i-2]; }
+  t= (t - d[len-1]) / (len-1);
+  for (i=1; i<len; i++) { d[i] += i * t; }
 }
 
 uint index_of_max(vector *v) {
@@ -1157,6 +1200,108 @@ void fill_image(image *im, real v) {
       p ++
     ) *p= s;
   }
+}
+
+double poisson_step(image *im, image *nlap) {
+  int depth= im->depth;
+  int w= im->width;
+  int h= im->height;
+  short *data= im->channel[0];
+  short *nl= nlap->channel[0];
+  int x, y;
+  short *p, *pl;
+  double t=0, v;
+  assert(depth == 1);
+  assert(nlap->depth == depth && nlap->width == w && nlap->height == h);
+  assert(w >= 3 && h >= 3);
+
+  // odd step //
+  for (y= 1; y < h-1; y++) {
+    for (
+      x= 2 - y%2, p= data + y*w + x, pl= nl + y*w + x;
+      x < w-1;
+      x += 2, p += 2, pl += 2
+    ) {
+      *p= (real)(*pl + *(p+1) + *(p-1) + *(p+w) + *(p-w)) / 4.0;
+    }
+  }
+
+  // even step //
+  for (y= 1; y < h-1; y++) {
+    for (
+      x= 1 + y%2, p= data + y*w + x, pl= nl + y*w + x;
+      x < w-1;
+      x += 2, p += 2, pl += 2
+    ) {
+      v= (real)(*pl + *(p+1) + *(p-1) + *(p+w) + *(p-w)) / 4.0;
+      *p += v= (v - *p) / 2;
+      t= MAX(t, fabs(v));
+    }
+  }
+
+  return t;
+}
+
+void poisson_border(image *im, image *nlap) {
+  int depth= im->depth;
+  int w= im->width;
+  int h= im->height;
+  assert(depth == 1 && nlap->width == w || nlap->height == h);
+
+  short *data= im->channel[0];
+  short *nl= nlap->channel[0];
+
+  // border //
+  vector *v= make_vector(MAX(w, h));
+  vector *l= make_vector(MAX(w, h));
+  // top
+  import_vector(v, data, w, 1);
+  import_vector(l, nl + 1, w-2, 1);
+  poisson_vector(v, l);
+  export_vector(v, data, w, 1);
+  // left
+  import_vector(v, data, h, w);
+  import_vector(l, nl + w, h-2, w);
+  poisson_vector(v, l);
+  export_vector(v, data, h, w);
+  // bottom
+  import_vector(v, data+w*(h-1), w, 1);
+  import_vector(l, nl+w*(h-1)+1, w-2, 1);
+  poisson_vector(v, l);
+  export_vector(v, data+w*(h-1), w, 1);
+  //right
+  import_vector(v, data + w-1, h, w);
+  import_vector(l, nl + w-1+w, h-2, w);
+  poisson_vector(v, l);
+  export_vector(v, data + w-1, h, w);
+
+  destroy_vector(v); destroy_vector(l);
+}
+
+void poisson_inner(image *im, image *nlap) {
+  // inner
+  int i;
+  double err;
+  for (i=1; i<=100; i++) {
+    err= poisson_step(im, nlap);
+    printf("err: %f\n", err);
+  }
+}
+
+void poisson_image(image *im, image *nlap) {
+  int depth= im->depth;
+  int w= im->width;
+  int h= im->height;
+  short *data= im->channel[0];
+  short *nl= nlap->channel[0];
+
+  if (depth != 1) error("poisson_image: invalid depth");
+  if (nlap->depth != depth) error("poisson_image: depth mismatch");
+  if (nlap->width != w || nlap->height != h)
+  { error("poisson_image: size mismatch"); }
+
+  poisson_border(im, nlap);
+  poisson_inner(im, nlap);
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:

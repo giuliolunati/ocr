@@ -21,6 +21,9 @@
 // KSKP= KS * KP
 #define KSKP 4681.142857142857
 
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 // TYPES -- alphabetical order //
 
 typedef struct { // image
@@ -70,15 +73,18 @@ void ensure_init_sigma();
 void error(const char *msg);
 void error1(const char *msg, const char *param);
 void fill_image(image *im, real v);
+void export_vector(vector *v, short *data, int len, int step);
 image *half_size(image *im);
 vector *histogram_of_image(image *im, int chan);
 image *image_background(image *im);
+void import_vector(vector *v, short *data, int len, int step);
 uint index_of_max(vector *v);
 image *make_image(int width, int height, int depth);
 vector *make_vector(uint size);
 void mean_y(image *im, uint d);
 void normalize_image(image *im, real strength);
 image *n_laplacian(image *im);
+void poisson_image(image *im, image *nlap);
 image *read_image(FILE *file, int sigma);
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);

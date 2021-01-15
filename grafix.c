@@ -27,9 +27,10 @@ if (! topic) {
 - grid STEP ----------- draw grid over image\n\
 - half ---------------------- half down size\n\
 - histo CHANNEL ------------------ histogram\n\
-- laplacian ------------- negative laplacian\n\
++ laplacian ------------- negative laplacian\n\
 - norm STRENGTH --------- normalize contrast\n\
 - pag NUM ------------------ set page number\n\
+- poisson -------------------- solve poisson\n\
 - quit ------------------- quit w/out output\n\
 + rot ANGLE ----- rotate (only +-90 180 270)\n\
 - skew ANGLE ----------- rotate (-45 ... 45)\n\
@@ -290,7 +291,6 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("laplacian")) {
       push(n_laplacian(im(1)));
-      swap(); pop();
     }
     else
     if (ARG_IS("norm")) { // FLOAT
@@ -310,6 +310,11 @@ int main(int argc, char **args) {
       if (! *(++arg)) error("pag: missing parameter");
       im(1)->pag= atoi(*arg);
       if (im(1)->pag > 9999) error("pag: number > 9999");
+    }
+    else
+    if (ARG_IS("poisson")) {
+      poisson_image(im(2), im(1));
+      pop();
     }
     else
     if (ARG_IS("quit")) exit(0);
