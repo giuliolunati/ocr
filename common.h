@@ -9,13 +9,17 @@
 #define uint unsigned int
 #define ulong unsigned long int
 #define real float
-#define K 16
-#define K_2 8 // K/2
-#define MAXVAL 4095 // 256 * K - 1
+
 #define MAXSHORT 32767
 
-#define SRGB 0
-#define SIGMA 1
+// used for encoding in read/write_image
+#define KP 32
+// MAXVAL= 128 * KP - 1
+#define MAXVAL 4095
+// KS= 128 * (MAXSHORT+1)/ (MAXSHORT-MAXVAL)
+#define KS 146.28571428571428
+// KSKP= KS * KP
+#define KSKP 4681.142857142857
 
 // TYPES -- alphabetical order //
 
@@ -75,7 +79,7 @@ vector *make_vector(uint size);
 void mean_y(image *im, uint d);
 void normalize_image(image *im, real strength);
 image *n_laplacian(image *im);
-image *read_image(FILE *file, int encoding);
+image *read_image(FILE *file, int sigma);
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);
 void shearx_image(image *im, real t);
@@ -84,7 +88,7 @@ void skew(image* im, real angle);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
 short *srgb_to_lin;
-void write_image(image *im, FILE *file, int encoding);
+void write_image(image *im, FILE *file, int sigma);
 void write_vector(vector *v, FILE *f);
 
 // vim: sw=2 ts=2 sts=2 expandtab:

@@ -110,7 +110,7 @@ int main(int argc, char **args) {
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
     if (ARG_IS("-")) { // see also s:-
-      push(read_image(stdin, SRGB));
+      push(read_image(stdin, 0));
     }
     else
     if (ARG_IS("-h") || ARG_IS("--help")) {
@@ -209,7 +209,7 @@ int main(int argc, char **args) {
         i= i + 1;
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, SRGB);
+        img= read_image(f, 0);
         if (i == 1) { push(img); }
         else { darker_image(im(1), img); }
       }
@@ -321,7 +321,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("s:-")) { // -
-      push(read_image(stdin, SIGMA));
+      push(read_image(stdin, 1));
     }
     else
     if (ARG_IS("skew")) { // FLOAT
@@ -357,9 +357,9 @@ int main(int argc, char **args) {
       if (IS_IMAGE(p)) {
         img= p;
         if (*arg == strstr(*arg, "s:")) {
-          c= SIGMA;
+          c= 1;
           (*arg) += 2; // discard s:
-        } else c= SRGB;
+        } else c= 0;
         if (strlen(*arg) >= 200) {
           error1("file name too long:", *arg);
         }
@@ -403,9 +403,9 @@ int main(int argc, char **args) {
     else
     if (strchr(*arg, '.')) { // [s:]FILENAME.EXT
       if (*arg == strstr(*arg, "s:")) {
-        c= SIGMA;
+        c= 1;
         (*arg) += 2; // discard s:
-      } else c= SRGB;
+      } else c= 0;
       i= get_page_number(*arg);
       l= strlen(*arg);
       ext= *arg + l - 4;

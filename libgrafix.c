@@ -55,41 +55,6 @@ void ensure_init_srgb() {
   );
 }
 
-short *sigma_to_lin= NULL;
-uchar *sigma_from_lin= NULL;
-
-void ensure_init_sigma() {
-  if (sigma_to_lin && sigma_from_lin) return;
-  sigma_to_lin= realloc(sigma_to_lin, 256);
-  sigma_from_lin= realloc(sigma_from_lin, 2 * MAXVAL + 1);
-  double y, y0, k= 0.04662964128062114; // sh(kX) = kY
-  int l0= -MAXVAL, l= -MAXVAL;
-  int s;
-  for (s= -1; s < 256; s ++) {
-    y= exp( ((double)s - 128 + 0.5) * k );
-    y = (y - 1/y) / 2 / k;
-    if (s < 0) { y0= y; continue; }
-    while (l + 0.5 < y) {
-      sigma_from_lin[l + MAXVAL]= s;
-      l ++;
-    }
-    sigma_to_lin[s]= (l + l0 - 1) / 2 + MAXVAL;
-    y0= y; l0= l;
-  }
-  while (l <= MAXVAL) {
-    sigma_from_lin[l + MAXVAL]= 255;
-    l ++;
-  }
-
-  assert(sigma_from_lin[0] == 1);
-  assert(sigma_from_lin[MAXVAL] == 128);
-  assert(sigma_from_lin[2*MAXVAL] == 255);
-  for (s= 1; s <= 255; s ++) assert(
-    s == (sigma_from_lin[sigma_to_lin[s]])
-  );
-
-}
-
 //// VECTORS ////
 
 vector *make_vector(uint size) {
@@ -197,14 +162,15 @@ void destroy_image(image *im) {
   free(im);
 }
 
-image *read_image(FILE *file, int encoding) {
+image *read_image(FILE *file, int sigma) {
   int x, y, prec, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
   ulong i;
   int z;
   char c;
-  short *p;
+  short *p, v;
+
   if (1 > fscanf(file, "P%d ", &depth)) {
     error("read_image: wrong magic.");
   }
@@ -236,8 +202,8 @@ image *read_image(FILE *file, int encoding) {
   if (!im) error("read_image: Cannot make image.");;
   assert(1 <= depth && depth <= 4);
   buf= malloc(width * depth);
-  if (encoding == SRGB) {
-    ensure_init_srgb();
+
+  if (sigma) {
     i= 0;
     for (y= 0; y < height; y++) {
       if (width > fread(buf, depth, width, file)) {
@@ -246,12 +212,12 @@ image *read_image(FILE *file, int encoding) {
       ps= buf;
       for (x= 0; x < width; x++, i++) {
         for (z= 0; z < depth; z++, ps++) {
-          *(im->channel[z] + i)= srgb_to_lin[*ps];
+          v= *ps - 128;
+          *(im->channel[z] + i)= KSKP * v / (KS - abs(v));
         }
       }
     }
-  } else if (encoding == SIGMA) {
-    ensure_init_sigma();
+  } else {
     i= 0;
     for (y= 0; y < height; y++) {
       if (width > fread(buf, depth, width, file)) {
@@ -260,11 +226,11 @@ image *read_image(FILE *file, int encoding) {
       ps= buf;
       for (x= 0; x < width; x++, i++) {
         for (z= 0; z < depth; z++, ps++) {
-          *(im->channel[z] + i)= sigma_to_lin[*ps];
+          *(im->channel[z] + i)= ((int)*ps - 128) * KP;
         }
       }
     }
-  } else error("read_image: unknown encoding.");
+  }
   if (depth > 2) {
   // RGB -> GBR, sono channel[0] is GReen/GRay ;-)
     p= im->channel[0];
@@ -276,7 +242,7 @@ image *read_image(FILE *file, int encoding) {
   return im;
 }
 
-void write_image(image *im, FILE *file, int encoding) {
+void write_image(image *im, FILE *file, int sigma) {
   int x, y;
   int width= im->width, height= im->height, depth=im->depth;
   uchar *buf, *pt;
@@ -297,39 +263,35 @@ void write_image(image *im, FILE *file, int encoding) {
   fprintf(file, "%d %d\n255\n", width, height);
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
-  if (encoding == SRGB) {
-    ensure_init_srgb();
+
+  if (sigma) {
     i= 0;
     for (y= 0; y < height; y++) {
       pt= buf;
       for (x= 0; x < width; x++, i++) {
         for (z= 0; z < depth; z++, pt++) {
           v= *(im->channel[z] + i);
-          if (v < 0) *pt= 0;
-          else
-          if (v > MAXVAL) *pt= 255;
-          else *pt= srgb_from_lin[v];
+          v= KS * v / (KSKP + abs(v));
+          *pt= v + 128;
         }
       }
       if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
-  } else if (encoding == SIGMA) {
-    ensure_init_sigma();
+  } else {
     i= 0;
     for (y= 0; y < height; y++) {
       pt= buf;
       for (x= 0; x < width; x++, i++) {
         for (z= 0; z < depth; z++, pt++) {
-          v= *(im->channel[z] + i) + MAXVAL;
-          if (v < 0) *pt= 0;
-          else
-          if (v > 2 * MAXVAL) *pt= 255;
-          else *pt= sigma_from_lin[v];
+          v= *(im->channel[z] + i);
+          if (v < -MAXVAL) *pt= 0;
+          else if (v > MAXVAL) *pt= 255;
+          else *pt= v / KP + 128;
         }
       }
       if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
-  } else error("write_image: unknown encoding.");
+  }
   free(buf);
   if (depth > 2) { // RGB -> GBR
     p= im->channel[0];
@@ -513,7 +475,7 @@ vector *histogram_of_image(image *im, int chan) {
       else
       if (*p > MAXVAL) d[255] += 1;
       else
-      d[*p / K] += 1;
+      d[*p / KP] += 1;
       p++;
     }
   }
@@ -1067,14 +1029,14 @@ void calc_statistics(image *im, int verbose) {
   // histograms
   for (y= 0; y < h; y++) {
     for (x= 0; x < w; x++) {
-      a= *pi / K; b= *px / K;
+      a= *pi / KP; b= *px / KP;
       pa[a]++;
       if ((x >= w - 1) || (y >= h - 1)) {continue;} 
       if (a > b) {c= b; b= a; a= c;}
       pb[a]++; pb[b]--;
       d= b - a; d *= d;
       pt[a] += d; pt[b] -= d;
-      a= *pi / K; b= *py / K;
+      a= *pi / KP; b= *py / KP;
       if (a > b) {c= b; b= a; a= c;}
       pb[a]++; pb[b]--;
       d= b - a; d *= d;
