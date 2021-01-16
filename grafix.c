@@ -22,6 +22,7 @@ if (! topic) {
 - div --------------------- divide im2 / im1\n\
 - double HARDNESS ----------- double up size\n\
 - ex HEIGHT ----------- set lowercase height\n\
+- fill GRAY [0..1] -------------------- fill\n\
 - fix-bg -------------------- fix background\n\
 - grid STEP ----------- draw grid over image\n\
 - half ---------------------- half down size\n\
@@ -251,6 +252,12 @@ int main(int argc, char **args) {
         img->ex= t;
       }
       default_ex= t;
+    }
+    else
+    if (ARG_IS("fill")) { // FLOAT
+      if (! *(++arg)) error("fill: missing parameter");
+      t= atof(*arg);
+      fill_image(im(1), t);
     }
     else
     if (ARG_IS("fix-bg")) {

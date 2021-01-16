@@ -65,6 +65,7 @@ void ensure_init_srgb();
 void ensure_init_sigma();
 void error(const char *msg);
 void error1(const char *msg, const char *param);
+void fill_image(image *im, real v);
 image *half_size(image *im);
 vector *histogram_of_image(image *im, int chan);
 image *image_background(image *im);

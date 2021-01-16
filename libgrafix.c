@@ -1184,4 +1184,17 @@ image *n_laplacian(image *im) {
   return om;
 }
 
+void fill_image(image *im, real v) {
+  short s= MAXVAL * v;
+  int i;
+  short *p, *end;
+  for (i= 0; i < im->depth; i++) {
+    for (
+      p= im->channel[i], end= p + (im->width * im->height);
+      p < end;
+      p ++
+    ) *p= s;
+  }
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:
