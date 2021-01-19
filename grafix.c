@@ -356,6 +356,18 @@ int main(int argc, char **args) {
       calc_statistics(im(1), 1);
     }
     else
+    if (ARG_IS("test")) {
+      if (! *(++arg)) error("tesft: missing parameter");
+      i=  atoi(*arg);
+      img= pop();
+      c= img->height % 2;
+      img= image_half_y(img,i);
+      img= image_double_y(img,i,c);
+      c= img->width % 2;
+      img= image_half_x(img,i);
+      push(image_double_x(img,i,c));
+    }
+    else
     if (ARG_IS("w")) { // [s:]FILENAME
       if (! *(++arg)) error("w: missing filename");
       p= pop();

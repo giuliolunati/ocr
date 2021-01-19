@@ -1242,6 +1242,232 @@ double poisson_step(image *im, image *nlap) {
   return t;
 }
 
+image *image_half_x(image *im, int border) {
+  int depth= im->depth;
+  assert(depth == 1);
+  if (border) border= 1;
+  int wi= im->width;
+  int h= im->height;
+  image *om;
+  int wo, x, y;
+  short *pi, *po;
+  wo= (wi - wi%1) / 2 + border; 
+  om= make_image(wo, h, depth);
+  if (wi % 2) { // odd
+    for (y= 0; y < h; y ++) {
+      pi= im->channel[0] + (y * wi);
+      po= om->channel[0] + (y * wo);
+      if (border) {
+        *po= *pi;
+        *(po + wo - 1)= *(pi + wi - 1);
+        po++; pi++;
+      }
+      for (x=0; x < wo-2*border; x++,po++,pi+=2) {
+        *po= (int)(*pi + *(pi+1)*2 + *(pi+2)) / 4;
+      }
+    }
+  } else { // even
+    for (y= 0; y < h; y ++) {
+      pi= im->channel[0] + (y * wi);
+      po= om->channel[0] + (y * wo);
+      if (border) {
+        *po= *pi;
+        *(po + wo - 1)= *(pi + wi - 1);
+        po++; pi++;
+      }
+      for (x=0; x < wo-2*border; x++,po++,pi+=2) {
+        *po= (int)(*pi + *(pi+1)) / 2;
+      }
+    }
+  }
+  return om;
+}
+
+image *image_half_y(image *im, int border) {
+  int depth= im->depth;
+  assert(depth == 1);
+  if (border) border= 1;
+  int w= im->width;
+  int hi= im->height;
+  image *om;
+  int ho, x, y;
+  short *pi, *po;
+  ho= (hi - hi%2) / 2 + border; 
+  om= make_image(w, ho, depth);
+  if (border) {
+    po= om->channel[0];
+    pi= im->channel[0];
+    memcpy(po, pi, w * sizeof(*po));
+    po += (ho - 1) * w;
+    pi += (hi - 1) * w;
+    memcpy(po, pi, w * sizeof(*po));
+  }
+  if (hi % 2) { // odd
+    for (y= border; y < ho - border; y ++) {
+      po= om->channel[0] + w * y;
+      pi= im->channel[0] + w * (y*2 -border +1);
+      for (x=0; x < w; x++, po++, pi++) {
+        *po= (int)(*(pi-w) + (*pi)*2 + *(pi+w)) / 4;
+      }
+    }
+  } else { // even
+    for (y= border; y < ho - border; y ++) {
+      po= om->channel[0] + w * y;
+      pi= im->channel[0] + w * (y*2 -border +1);
+      for (x=0; x < w; x++, po++, pi++) {
+        *po= (int)(*(pi-w) + (*pi)) / 2;
+      }
+    }
+  }
+  return om;
+}
+
+image *image_double_x(image *im, int border, int odd) {
+  int depth= im->depth;
+  assert(depth == 1);
+  if (border) border= 1;
+  if (odd) odd= 1;
+  int wi= im->width;
+  int h= im->height;
+  image *om;
+  int wo, x, y;
+  short *pi, *po;
+  wo= (wi - border)*2 + odd; 
+  om= make_image(wo, h, depth);
+  pi= im->channel[0];
+  po= om->channel[0];
+  if (odd) {
+    // border:
+      // i: 0   1   2   3   4
+      // o: 0 1 2 3 4 5 6 7 8
+    // no border:
+      // i:   0   1   2   3
+      // o: 0 1 2 3 4 5 6 7 8
+    for (y= 0; y < h; y ++) {
+      *po= *pi; po++;
+      // i=0, o=1
+      if (border) {
+        *po= (int)(*pi + *(pi+1)) /2 ;
+        po++; pi++;
+        // i=1, o=2
+      }
+      for (x=0; x<wi-1-border; x++) {
+        *po= *pi; po++;
+        *po= (int)(*pi + *(pi+1)) / 2;
+        po++; pi++;
+      }
+      if (! border) { *po= *pi; po++; }
+      *po= *pi;
+      po++; pi++;
+    }
+  } else { // even
+    // border:
+      // i: 0  1   2   3  4
+      // o: 0 1 2 3 4 5 6 7
+    // no border:
+      // i:  0   1   2   3
+      // o: 0 1 2 3 4 5 6 7
+    for (y= 0; y < h; y++) {
+      *po= *pi; po++;
+      // i=0, o=1
+      if (border) {
+        *po= (int)(*pi + *(pi+1) * 3) / 4;
+        po++; pi++;
+        // i=1, o=2
+      }
+      for (x=0; x < wi-1-2*border; x++) {
+        *po= (int)(*pi * 3 + *(pi+1)) / 4;
+        po++;
+        *po= (int)(*pi + *(pi+1) * 3) / 4;
+        po++; pi++;
+      }
+      if (border) {
+        *po= (int)(*pi * 3 + *(pi+1)) / 4;
+        po++; pi++;
+      }
+      *po= *pi;
+      po++; pi++;
+    }
+  }
+  return om;
+}
+
+image *image_double_y(image *im, int border, int odd) {
+  int depth= im->depth;
+  assert(depth == 1);
+  if (border) border= 1;
+  if (odd) odd= 1;
+  int w= im->width;
+  int hi= im->height;
+  image *om;
+  int ho, x, i;
+  short *pi, *po;
+  ho= (hi - border)*2 +odd;
+  om= make_image(w, ho, depth);
+  po= om->channel[0];
+  pi= im->channel[0];
+  // i= o= 0
+  memcpy(po, pi, w * sizeof(*po));
+  po += w;
+  // i=0, o=1
+  if (odd) {
+    // border:
+      // i: 0   1   2   3   4
+      // o: 0 1 2 3 4 5 6 7 8
+    // no border:
+      // i:   0   1   2   3
+      // o: 0 1 2 3 4 5 6 7 8
+    if (border) {
+      for (x=0; x<w; x++,po++,pi++) {
+        *po= (int)(*pi + *(pi+w)) / 2;
+        // i=1, o=2
+      }
+    }
+    for (i=0; i<hi-1-border; i++) {
+      memcpy(po, pi, w * sizeof(*po));
+      po += w;
+      for (x=0; x<w; x++,po++,pi++) {
+        *po= (int)(*pi + *(pi+w)) / 2;
+      }
+    }
+    if (! border) {
+      memcpy(po, pi, w * sizeof(*po));
+      po += w;
+    }
+  } else { // even
+    // border:
+      // i: 0  1   2   3  4
+      // o: 0 1 2 3 4 5 6 7
+    // no border:
+      // i:  0   1   2   3
+      // o: 0 1 2 3 4 5 6 7
+    memcpy(po, pi, w * sizeof(*po));
+    po += w;
+    // i=0, o=1
+    if (border) {
+      for (x=0; x<w; x++,po++,pi++) {
+        *po= (int)(*pi + *(pi+w) * 3) / 4;
+      }
+      // i=1, o=2
+    }
+    for (i=0; i<hi-1-2*border; i++,po+=w) {
+      for (x=0; x<w; x++,po++,pi++) {
+        *po= (int)(*pi * 3 + *(pi+w)) / 4;
+        *(po+w)= (int)(*pi + *(pi+w)*3) / 4;
+      }
+    }
+    if (border) {
+      // i=hi-2, o=ho-2
+      for (x=0; x<w; x++,po++,pi++) {
+        *po= (int)(*pi * 3 + *(pi+w)) / 4;
+      }
+    }
+  }
+  // i=hi-1, o=ho-1
+  memcpy(po, pi, w * sizeof(*po));
+  return om;
+}
+
 void poisson_border(image *im, image *nlap) {
   int depth= im->depth;
   int w= im->width;
