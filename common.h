@@ -89,6 +89,7 @@ void mean_y(image *im, uint d);
 void normalize_image(image *im, real strength);
 image *n_laplacian(image *im);
 void poisson_image(image *im, image *nlap);
+void poisson_vector(vector *target, vector *nlap);
 image *read_image(FILE *file, int sigma);
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);

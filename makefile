@@ -1,11 +1,12 @@
 CC = gcc
 CFLAGS = -O3
+OBJS = vector.o image.o transform.o scale.o convolution.o misc.o
 
-grafix: grafix.c libgrafix.o common.h
-	$(CC) -o $@ $< libgrafix.o -lm ${PIE}
+grafix: grafix.c libgrafix.a common.h
+	$(CC) -o $@ $< libgrafix.a -lm 
 
-libgrafix.o: libgrafix.c common.h
-	$(CC) -c -o $@ $(CFLAGS) $<
+libgrafix.a: ${OBJS}
+	ar rs $@ $(OBJS)
 
 test: test.c libgrafix.a common.h
 	$(CC) -o $@ $< libgrafix.a -lm 
