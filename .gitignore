@@ -5,3 +5,7 @@ grafix
 *.jpg
 *.jpeg
 *.o
+*.p[gpna]m
+*.a
+*.so
+_*

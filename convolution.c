@@ -1,42 +1,262 @@
 #include "common.h"
 
-image *n_laplacian(image *im) {
+void convolution_3x3(image *im, real a, real b, real c, real d, int border) {
+  // border = 2 => border + corners
+  // d c d
+  // b a b  symmetric 3x3 kernel
+  // d c d
   int depth= im->depth;
-  if (depth != 1) error("laplacian: invalid depth");
-  // negative laplacian
-  int w= im->width, h= im->height;
-  int x, y= 0;
-  image *om= make_image(w, h, im->depth);
-  om->ex= im->ex;
-  om->pag= im->pag;
-  short *i, *iu, *id, *il, *ir, *o, *end;
-  real v;
-  
-  i= im->channel[0];
-  end= i + (w * h);
-  o= om->channel[0];
-  iu= i - w;
-  il= i - 1; ir= i + 1;
-  id= i + w;
-  // y = 0 
-  for (x=0; x<w; x++,i++,iu++,id++,il++,ir++,o++) {
-    if (x == 0 || x == w - 1) {
-      *o= 0;
-    } else *o= (real) 2 * *i - *il - *ir;
-  }
-  for (y=1; y < h-1; y++) { 
-    for (x=0; x<w; x++,i++,iu++,id++,il++,ir++,o++) {
-      if (x == 0 || x == w - 1) {
-        *o= (real) 2 * *i - *iu - *id;
-      } else *o= (real) 4 * *i - *iu - *id - *il - *ir;
+  int w= im->width, h= im->height, x, y;
+  int len= w * sizeof(short);
+
+  short *buf= (short *) malloc(3 * len);
+  if (! buf) error("convolution_3x3: out of memory.");
+  memcpy(buf, im->channel[0], 2 * len);
+  short *i0, *i1, *i2, *o;
+  if (border > 0) {
+    o= im->channel[0];
+    i0= buf; i1= i0 + 1; i2 = i1 + 1;
+    if (border > 1) {
+      *o= *i0 * (a + 2 * (b + c) + 4 * d);
+    }
+    for (x= 0; x < w-2; x++) {
+      o++; 
+      *o= (real) *i1 * (2 * c + a) +
+        (*i0 + *i2) * (2 * d + b);
+      i0++; i1++; i2++;
+    }
+    if (border > 1) {
+      *(o+1)= *i2 * (a + 2 * (b + c) + 4 * d);
     }
   }
-  // y = h-1
-  for (x=0; x<w; x++,i++,iu++,id++,il++,ir++,o++) {
-    if (x == 0 || x == w - 1) {
-      *o= 0;
-    } else *o= (real) 2 * *i - *il - *ir;
+  o= im->channel[0] + w;
+  for (y=1; y < h-1; y++) {
+    i0= buf; i1= i0 + w; i2 = i1 + w;
+    memcpy(i2, o + w, len);
+    if (border > 0) {
+      *o= *i1 * (2 * b + a) +
+        (*i0 + *i2) * (2 * d + c);
+    }
+    for (x= 0; x < w-2; x++) {
+      o++;
+      *o= (real) a * *(i1+1) +
+        b * ( (*i1) + *(i1+2) ) +
+        c * ( *(i0+1) + *(i2+1) ) +
+        d * ( *i0 + *i2 + *(i0+2) + *(i2+2) );
+      i0++, i1++, i2++;
+    }
+    if (border > 0) {
+      *(o+1)= *i1 * (2 * b + a) +
+        (*i0 + *i2) * (2 * d + c);
+    }
+    o += 2;
+    memmove(buf, buf + w, 2 * len);
   }
+  if (border > 0) {
+    i0= buf + 2*w; i1= i0 + 1; i2 = i1 + 1;
+    if (border > 1) {
+      *o= *i0 * (a + 2 * (b + c) + 4 * d);
+    }
+    for (x= 0; x < w-2; x++) {
+      o++; 
+      *o= (real) *i1 * (2 * c + a) +
+        (*i0 + *i2) * (2 * d + b);
+      i0++; i1++; i2++;
+    }
+    if (border > 1) {
+      *(o+1)= *i2 * (a + 2 * (b + c) + 4 * d);
+    }
+  }
+  free(buf);
+}
+
+void deconvolution_3x1(image *im, real a, real b, real c, int border) {
+  // a b c
+  if (border) border= 1;
+  int i, y, n= im->width, h= im->height;
+  real *th;
+  real t= a + b + c;
+  real *aa= malloc(n * sizeof(*aa));
+  real *bb= malloc(n * sizeof(*bb));
+  real *cc= malloc(n * sizeof(*cc));
+  if (!aa || !bb || !cc) error("deconvolution_3x1: out of memory.");
+  for (i= 0; i < n; i++) {
+    aa[i]= a; bb[i]= b; cc[i]= c;
+  }
+  bb[0]= 1; cc[0]=0;
+  bb[n-1]= 1; aa[n-1]=0;
+  real p,q,r, *v= malloc(n * sizeof(*v));
+  short *s;
+  th= solve_tridiagonal(aa, bb, cc, n);
+  for (y=1-border ; y < h-1+border; y++) {
+    s= im->channel[0] + n*y;
+    for (i= 0; i < n; i++) v[i]= s[i];
+    for (i= 0; i < n-1; i++) {
+      p = sin(th[i]); q = cos(th[i]);
+      r= p * v[i] + q * v[i+1];
+      v[i] -= 2*r*p;
+      v[i+1] -= 2*r*q;
+    }
+    for (i= n-1; i >= 0; i--) {
+      if (i+2 < n) v[i] -= aa[i] * v[i+2];
+      if (i+1 < n) v[i] -= cc[i] * v[i+1];
+      assert(bb[i] != 0);
+      v[i] /= bb[i];
+    }
+    for (i= 0; i < n; i++) s[i]= v[i];
+  }
+  free(aa); free(bb); free(cc);
+  free(th); free(v);
+}
+
+void deconvolution_1x3(image *im, real a, real b, real c, int border) {
+  // a b c
+  if (border) border= 1;
+  int i, x, w= im->width, n= im->height;
+  short *s;
+  real *th;
+  real p,q,r, *v= malloc(n * sizeof(*v));
+  real t= a + b + c;
+  real *aa= malloc(n * sizeof(*aa));
+  real *bb= malloc(n * sizeof(*bb));
+  real *cc= malloc(n * sizeof(*cc));
+  if (!aa || !bb || !cc) error("deconvolution_1x3: out of memory.");
+  for (i= 0; i < n; i++) {
+    aa[i]= a; bb[i]= b; cc[i]= c;
+  }
+  bb[0]= 1; cc[0]=0;
+  bb[n-1]= 1; aa[n-1]=0;
+  th= solve_tridiagonal(aa, bb, cc, n);
+  for (x= 1-border ; x < w-1+border; x++) {
+    s= im->channel[0] + x;
+    for (i= 0; i < n; i++) v[i]= s[i*w];
+    for (i= 0; i < n-1; i++) {
+      p = sin(th[i]); q = cos(th[i]);
+      r= p * v[i] + q * v[i+1];
+      v[i] -= 2*r*p;
+      v[i+1] -= 2*r*q;
+    }
+    for (i= n-1; i >= 0; i--) {
+      if (i+2 < n) v[i] -= aa[i] * v[i+2];
+      if (i+1 < n) v[i] -= cc[i] * v[i+1];
+      assert(bb[i] != 0);
+      v[i] /= bb[i];
+    }
+    for (i= 0; i < n; i++) s[i*w]= v[i];
+  }
+  free(aa); free(bb); free(cc);
+  free(th); free(v);
+}
+
+image *deconvolution_3x3(image *im, real a, real b, real c, real d, int steps) {
+  // D-E = a  b   = a b = F
+  //       ak bk-e  c d
+  // Y = FX = DX - EX
+  // D\(Y + EX) = X
+int border= 0;
+  assert(a != 0);
+  int n,x,y,w= im->width, h= im->height;
+fprintf(stderr, "%dx%d \n", w,h);
+  int dx;
+  image *him, *hom, *om, *im2, *om2;
+  vector *v= make_vector(MAX(w,h));
+  short *pi= im->channel[0];
+  short *po, *pu, *pd;
+  float err, maxerr;
+  om= make_image(w, h, 1);
+  po= om->channel[0];
+  // deconvolve border
+  // top
+assert(border==0);
+  import_vector(v,pi,w,1);
+  if (border) vector_deconvolution_3(v, 2*d+b, 2*c+a, 2*d+b, 0);
+  export_vector(v,po,w,1);
+  // left
+  import_vector(v,pi,h,w);
+  if (border) vector_deconvolution_3(v, 2*d+c, 2*b+a, 2*d+c, 0);
+  export_vector(v,po,h,w);
+  // bottom
+  import_vector(v,pi+h*w-w,w,1);
+  if (border) vector_deconvolution_3(v, 2*d+b, 2*c+a, 2*d+b, 0);
+  export_vector(v,po+h*w-w,w,1);
+  // right
+  import_vector(v,pi+w-1,h,w);
+  if (border) vector_deconvolution_3(v, 2*d+c, 2*b+a, 2*d+c, 0);
+  export_vector(v,po+w-1,h,w);
+  // inner
+  if (MAX(w,h) > 32) {
+    for (n=4; n>0; n--) {
+      for (y= 1; y < h-1; y++) {
+        dx= (n+y)%2;
+        pi= im->channel[0] + 1 + y*w + dx;
+        po= om->channel[0] + 1 + y*w + dx;
+        pu= po - w; pd= po + w;
+        for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
+          err= ((float) *pi
+          - b * (*(po-1) + *(po+1))
+          - c * (*pu + *pd)
+          - d * (*(pu+1) + *(pu-1) + *(pd+1) + *(pd-1))
+          ) / a - *po;
+          *po += err;
+          err= a * fabs(err);
+          if (err > maxerr) maxerr= err;
+        } 
+      }
+      if (maxerr < 0.5) break;
+    }
+    im2= copy_image(om);
+    convolution_3x3(im2, a, b, c, d, border);
+    po= im2->channel[0];
+    pi= im->channel[0];
+    for (x=w; x>0; x--) for (y=h; y>0; y--)
+    { *po= *pi - *po; po++, pi++;}
+    if (w > h) {
+      him= image_half_x(im2, 1);
+      hom= deconvolution_3x3(
+          him, b+a*3/4 , b/2+a/8, d+c*3/4, d/2+c/8, steps
+      );
+      om2= image_double_x(hom, 1, w%2);
+    } else { // h >= w
+      him= image_half_y(im2, 1);
+      hom= deconvolution_3x3(
+          him, c+a*3/4 , d+b*3/4, c/2+a/8, d/2+b/8, steps
+      );
+      om2= image_double_y(hom, 1, h%2);
+    }
+    destroy_image(him);
+    destroy_image(hom);
+    destroy_image(im2);
+    po= om->channel[0];
+    pi= om2->channel[0];
+    for (x=w; x>0; x--) for (y=h; y>0; y--)
+    { *po += *pi; po++; pi++;}
+    destroy_image(om2);
+  }
+  // inner
+  // deconvolve inner
+  // inner
+  for (n=1; n<=steps; n++) {
+    if (n%2 == 0) maxerr= 0;
+    for (y= 1; y < h-1; y++) {
+      dx= (n+y)%2;
+      pi= im->channel[0] + 1 + y*w + dx;
+      po= om->channel[0] + 1 + y*w + dx;
+      pu= po - w; pd= po + w;
+      for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
+        err= ((float) *pi
+        - b * (*(po-1) + *(po+1))
+        - c * (*pu + *pd)
+        - d * (*(pu+1) + *(pu-1) + *(pd+1) + *(pd-1))
+        ) / a - *po;
+        *po += err;
+        err= a * fabs(err);
+        if (err > maxerr) maxerr= err;
+      }
+    }
+    if (maxerr < 0.5) break;
+  }
+  fprintf(stderr, "n=%d err=%f\n", n, maxerr);
+  destroy_vector(v);
   return om;
 }
 

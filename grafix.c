@@ -290,7 +290,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("laplacian")) {
-      push(n_laplacian(im(1)));
+      convolution_3x3(im(1), 4, -1, -1, 0, 1);
     }
     else
     if (ARG_IS("norm")) { // FLOAT
@@ -357,15 +357,9 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("test")) {
-      if (! *(++arg)) error("tesft: missing parameter");
-      i=  atoi(*arg);
-      img= pop();
-      c= img->height % 2;
-      img= image_half_y(img,i);
-      img= image_double_y(img,i,c);
-      c= img->width % 2;
-      img= image_half_x(img,i);
-      push(image_double_x(img,i,c));
+      if (! *(++arg)) error("test: missing parameter");
+      x=  atof(*arg);
+      convolution_3x3(im(1), 4, -1, -1, 0, 2);
     }
     else
     if (ARG_IS("w")) { // [s:]FILENAME

@@ -76,6 +76,19 @@ void destroy_image(image *im) {
   free(im);
 }
 
+image *copy_image(image *im) {
+  image *r= malloc(sizeof(*r));
+  memcpy(r, im, sizeof(*r));
+  short *p;
+  int i, d= im->depth;
+  uint len= im->width * im->height * sizeof(*p);
+  for (i=0; i<d; i++) {
+    r->channel[i]= p= malloc(len);
+    memcpy(p, im->channel[i], len);
+  }
+  return r;
+}
+
 image *read_image(FILE *file, int sigma) {
   int x, y, prec, depth, height, width, binary;
   image *im;
@@ -215,3 +228,4 @@ void write_image(image *im, FILE *file, int sigma) {
   }
 }
 
+// vim: set et sw=2:
