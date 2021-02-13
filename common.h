@@ -9,6 +9,7 @@
 #define uint unsigned int
 #define ulong unsigned long int
 #define real float
+#define gray float
 
 #define MAXSHORT 32767
 
@@ -28,14 +29,14 @@
 
 typedef struct { // image
   char magic;
-  short *channel[4];
+  gray *channel[4];
   uint width;
   uint height;
   int depth;
   real ex; // height of x in pixels
   uint pag;
   real black;
-  real gray;
+  real graythr;
   real white;
   real area;
   real thickness;
@@ -77,7 +78,7 @@ void ensure_init_sigma();
 void error(const char *msg);
 void error1(const char *msg, const char *param);
 void fill_image(image *im, real v);
-void export_vector(vector *v, short *data, int len, int step);
+void export_vector(vector *v, gray *data, int len, int step);
 image *half_size(image *im);
 vector *histogram_of_image(image *im, int chan);
 image *image_background(image *im);
@@ -85,7 +86,7 @@ image *image_double_x(image *im, int border, int odd);
 image *image_double_y(image *im, int border, int odd);
 image *image_half_x(image *im, int border);
 image *image_half_y(image *im, int border);
-void import_vector(vector *v, short *data, int len, int step);
+void import_vector(vector *v, gray *data, int len, int step);
 uint index_of_max(vector *v);
 image *make_image(int width, int height, int depth);
 vector *make_vector(uint size);
@@ -102,7 +103,7 @@ void skew(image* im, real angle);
 real *solve_tridiagonal(real *a, real *b, real *c, int n);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
-short *srgb_to_lin;
+gray *srgb_to_lin;
 void vector_convolution_3(vector *v, real a, real b, real c, int border);
 void vector_deconvolution_3(vector *v, real a, real b, real c, int border);
 void write_image(image *im, FILE *file, int sigma);

@@ -6,7 +6,7 @@ image *rotate_90_image(image *im, int angle) {
   image *om= make_image(h, w, im->depth);
   om->ex= im->ex;
   om->pag= im->pag;
-  short *i, *o;
+  gray *i, *o;
   for (z= 0; z < im->depth; z++) {
     i= im->channel[z]; o= om->channel[z];
     switch ((int)angle) {
@@ -47,7 +47,7 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
   if (x <= 0) error("x must be > 0.");
   if (x == 1) error("x must be != 1.");
   if (x > 1) x= 1/x;
-  short *p, *p1, *p2;
+  gray *p, *p1, *p2;
   uint z, y, h= im->height;
   uint w= im->width;
   uint w1= w * x;
@@ -59,8 +59,8 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
     p1= im1->channel[z];
     p2= im2->channel[z];
     for (y= 0; y < h; y++, p += w, p1 += w1, p2 += w2) {
-      memcpy(p1, p, w1 * sizeof(short));
-      memcpy(p2, p + w1, w2 * sizeof(short));
+      memcpy(p1, p, w1 * sizeof(gray));
+      memcpy(p2, p + w1, w2 * sizeof(gray));
     }
   }
   im1->pag= im->pag;
@@ -82,8 +82,8 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   l1= w * h1;
   l2= w * h2;
   for (z= 0; z < im->depth; z++) {
-    memcpy(im1->channel[z], im->channel[z], l1 * sizeof(short));
-    memcpy(im2->channel[z], im->channel[z] + l1, l2 * sizeof(short));
+    memcpy(im1->channel[z], im->channel[z], l1 * sizeof(gray));
+    memcpy(im2->channel[z], im->channel[z] + l1, l2 * sizeof(gray));
   }
   im1->pag= im->pag;
   im2->pag= im->pag + 1;
@@ -101,7 +101,7 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   int w1= x2 - x1;
   int h1= y2 - y1;
   int i;
-  short *s, *t;
+  gray *s, *t;
   if (x1 < 0 || x2 <= x1 || x2 > w) error("crop: wrong x parameters\n");
   if (y1 < 0 || y2 <= y1 || y2 > h) error("crop: wrong y parameters\n");
   image *out= make_image(w1, h1, im->depth);
@@ -133,14 +133,14 @@ real skew_score(int d, image *test, vector *v) {
   int i, j, x, y;
   int  w= test->width, h= test->height;
   real t, *p, *end;
-  short *pt;
+  gray *pt;
   clear_vector(v);
   for (y= 0; y < h; y++) {
     pt= test->channel[0] + y * w;
     x= 0;
     for (i= 0; i <= abs(d); i++) {
       if (d >= 0) {j= y + i;} else {j= y + w - i;} 
-      for (; x < w * (i + 1) / (abs(d) + 1); x++, pt++) {if (*pt) {v->data[j] += abs(*pt);}}
+      for (; x < w * (i + 1) / (abs(d) + 1); x++, pt++) {if (*pt) {v->data[j] += fabs(*pt);}}
     }
   }
   t= 0;
@@ -156,13 +156,13 @@ real detect_skew(image *im) {
   real t, s= 0;
   // create test image
   image *test= make_image(w, h - 1, im->depth);
-  short *p1, *p2, *pt, *end;
+  gray *p1, *p2, *pt, *end;
   for (y= 0; y < h - 1; y++) {
     p1= im->channel[0] + y * w;
     end= p2= p1 + w;
     pt= test->channel[0] + y * w;
     for (; p1 < end; p1++, p2++, pt++) {
-      t= abs(*p1 - *p2);
+      t= fabs(*p1 - *p2);
       *pt= t;
       s += t * t;
     }
@@ -206,8 +206,8 @@ void shearx_image(image *im, real t) {
   int depth= im->depth;
   if (depth != 1) error("shearx_image: invalid depth");
   real dr, df, ca, cb, cc, cd;;
-  short *end, *p, *a, *b;
-  short *buf= malloc(w * sizeof(*buf));
+  gray *end, *p, *a, *b;
+  gray *buf= malloc(w * sizeof(*buf));
   for (y= 0; y < h; y++) {
     memcpy(buf, im->channel[0] + (w * y), w * sizeof(*buf));
     dr= ((int)y - (int)h/2) * t;
@@ -241,8 +241,8 @@ void sheary_image(image *im, real t) {
   uint h= im->height;
   int depth= im->depth;
   if (depth != 1) error("shear_y: invalid depth");
-  short *p, *end;
-  short *buf= malloc(w * sizeof(*buf));
+  gray *p, *end;
+  gray *buf= malloc(w * sizeof(*buf));
   int d, *di= malloc(w * sizeof(*di));
   real f, dr, *df= malloc(w * sizeof(*df));
   int a, b, x, y;
@@ -357,7 +357,7 @@ image *autocrop(image *im, int width, int height) {
   vector *vy= make_vector(h); // y-histogram
   vy->len= vy->size;
   int i, x1, x2, y1, y2;
-  short *p, *end;
+  gray *p, *end;
   real *px, *py, t, t1;
   int k= (MAXVAL + 1) /2;
 

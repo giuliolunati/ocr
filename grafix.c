@@ -141,10 +141,10 @@ int main(int argc, char **args) {
     if (ARG_IS("bin")) { // auto | FLOAT
       if (! *(++arg)) error("bin: missing parameter");
       if (ARG_IS("auto")) {
-        if (im(1)->gray < 0) {
+        if (im(1)->graythr < 0) {
           calc_statistics(im(1), 0);
         }
-        x= im(1)->gray;
+        x= im(1)->graythr;
       }
       else x= atof(*arg);
       x < 1 || (x /= 255);

@@ -7,12 +7,12 @@ void convolution_3x3(image *im, real a, real b, real c, real d, int border) {
   // d c d
   int depth= im->depth;
   int w= im->width, h= im->height, x, y;
-  int len= w * sizeof(short);
+  int len= w * sizeof(gray);
 
-  short *buf= (short *) malloc(3 * len);
+  gray *buf= (gray *) malloc(3 * len);
   if (! buf) error("convolution_3x3: out of memory.");
   memcpy(buf, im->channel[0], 2 * len);
-  short *i0, *i1, *i2, *o;
+  gray *i0, *i1, *i2, *o;
   if (border > 0) {
     o= im->channel[0];
     i0= buf; i1= i0 + 1; i2 = i1 + 1;
@@ -86,7 +86,7 @@ void deconvolution_3x1(image *im, real a, real b, real c, int border) {
   bb[0]= 1; cc[0]=0;
   bb[n-1]= 1; aa[n-1]=0;
   real p,q,r, *v= malloc(n * sizeof(*v));
-  short *s;
+  gray *s;
   th= solve_tridiagonal(aa, bb, cc, n);
   for (y=1-border ; y < h-1+border; y++) {
     s= im->channel[0] + n*y;
@@ -113,7 +113,7 @@ void deconvolution_1x3(image *im, real a, real b, real c, int border) {
   // a b c
   if (border) border= 1;
   int i, x, w= im->width, n= im->height;
-  short *s;
+  gray *s;
   real *th;
   real p,q,r, *v= malloc(n * sizeof(*v));
   real t= a + b + c;
@@ -160,8 +160,8 @@ fprintf(stderr, "%dx%d \n", w,h);
   int dx;
   image *him, *hom, *om, *im2, *om2;
   vector *v= make_vector(MAX(w,h));
-  short *pi= im->channel[0];
-  short *po, *pu, *pd;
+  gray *pi= im->channel[0];
+  gray *po, *pu, *pd;
   float err, maxerr;
   om= make_image(w, h, 1);
   po= om->channel[0];
@@ -264,10 +264,10 @@ double poisson_step(image *im, image *nlap) {
   int depth= im->depth;
   int w= im->width;
   int h= im->height;
-  short *data= im->channel[0];
-  short *nl= nlap->channel[0];
+  gray *data= im->channel[0];
+  gray *nl= nlap->channel[0];
   int x, y;
-  short *p, *pl;
+  gray *p, *pl;
   double t=0, v;
   assert(depth == 1);
   assert(nlap->depth == depth && nlap->width == w && nlap->height == h);
@@ -306,8 +306,8 @@ void poisson_border(image *im, image *nlap) {
   int h= im->height;
   assert(depth == 1 && nlap->width == w || nlap->height == h);
 
-  short *data= im->channel[0];
-  short *nl= nlap->channel[0];
+  gray *data= im->channel[0];
+  gray *nl= nlap->channel[0];
 
   // border //
   vector *v= make_vector(MAX(w, h));
@@ -350,8 +350,8 @@ void poisson_image(image *im, image *nlap) {
   int depth= im->depth;
   int w= im->width;
   int h= im->height;
-  short *data= im->channel[0];
-  short *nl= nlap->channel[0];
+  gray *data= im->channel[0];
+  gray *nl= nlap->channel[0];
 
   if (depth != 1) error("poisson_image: invalid depth");
   if (nlap->depth != depth) error("poisson_image: depth mismatch");

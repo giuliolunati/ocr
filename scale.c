@@ -8,7 +8,7 @@ image *double_size(image *im, real k /*hardness*/) {
   image *om= make_image(2 * w, 2 * h, im->depth);
   om->ex= 2 * im->ex;
   om->pag= im->pag;
-  short *i1, *i2, *i3, *i4, *o;
+  gray *i1, *i2, *i3, *i4, *o;
   real v;
   real a= 9.0/16, b= 3.0/16, c= 1.0/16; 
   real a1= 8.0/15, b1= 2.0/15, c1= 3.0/15; 
@@ -62,7 +62,7 @@ image *half_size(image *im) {
   image *om= make_image(w2, h2, im->depth);
   om->ex= im->ex / 2;
   om->pag= im->pag;
-  short *i1, *i2, *i3, *i4, *o;
+  gray *i1, *i2, *i3, *i4, *o;
   real v;
 
   for (y= 0; y < h; y += 2) {
@@ -88,7 +88,7 @@ image *image_half_x(image *im, int border) {
   int h= im->height;
   image *om;
   int wo, x, y;
-  short *pi, *po;
+  gray *pi, *po;
   wo= (wi - wi%1) / 2 + border; 
   om= make_image(wo, h, depth);
   if (wi % 2) { // odd
@@ -129,7 +129,7 @@ image *image_half_y(image *im, int border) {
   int hi= im->height;
   image *om;
   int ho, x, y;
-  short *pi, *po;
+  gray *pi, *po;
   ho= (hi - hi%2) / 2 + border; 
   om= make_image(w, ho, depth);
   if (border) {
@@ -169,7 +169,7 @@ image *image_double_x(image *im, int border, int odd) {
   int h= im->height;
   image *om;
   int wo, x, y;
-  short *pi, *po;
+  gray *pi, *po;
   wo= (wi - border)*2 + odd; 
   om= make_image(wo, h, depth);
   pi= im->channel[0];
@@ -239,7 +239,7 @@ image *image_double_y(image *im, int border, int odd) {
   int hi= im->height;
   image *om;
   int ho, x, i;
-  short *pi, *po;
+  gray *pi, *po;
   ho= (hi - border)*2 +odd;
   om= make_image(w, ho, depth);
   po= om->channel[0];

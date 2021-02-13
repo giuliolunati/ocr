@@ -28,8 +28,8 @@ image *image_background(image *im) {
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
   v1= malloc(w * sizeof(*v1));
-  short *pi;
-  short *po;
+  gray *pi;
+  gray *po;
   for (z= 0; z < im->depth; z++) {
     pi= im->channel[z];
     po= om->channel[z];
@@ -74,7 +74,7 @@ void divide_image(image *a, image *b) {
   int w= a->width;
   int depth= a->depth;
   int i, z;
-  short *pa, *pb;
+  gray *pa, *pb;
   if (b->height != h || b->width != w) error("divide_image: size mismatch.");
   if (b->depth != depth) error("divide_image: depth mismatch.");
   for (z= 0; z < depth; z++) {
@@ -90,7 +90,7 @@ void divide_image(image *a, image *b) {
 vector *histogram_of_image(image *im, int chan) {
   vector *hi= make_vector(256);
   hi->len= hi->size;
-  short *p= im->channel[chan];
+  gray *p= im->channel[chan];
   real *d= hi->data;
   int x, y, h= im->height, w= im->width;
   for (y= 0; y < h; y++) {
@@ -99,7 +99,7 @@ vector *histogram_of_image(image *im, int chan) {
       else
       if (*p > MAXVAL) d[255] += 1;
       else
-      d[*p / KP] += 1;
+      d[(int)(*p / KP)] += 1;
       p++;
     }
   }
@@ -107,8 +107,8 @@ vector *histogram_of_image(image *im, int chan) {
 }
 
 void contrast_image(image *im, real black, real white) {
-  short *end= im->channel[0] + (im->width * im->height);
-  short *p;
+  gray *end= im->channel[0] + (im->width * im->height);
+  gray *p;
   real a, b;
   int depth= im->depth;
   assert(1 <= depth && depth <= 4);
@@ -207,7 +207,7 @@ void mean_y(image *im, uint d) {
   real *v= calloc(w * (d + 1), sizeof(*v));
   real *r1, *r, *rd;
   int y, i;
-  short *p, *q, *end;
+  gray *p, *q, *end;
   for (y= 0; y < h; y++) {
     i= (y+1) % (d+1);
     rd= v + w * i;
@@ -240,7 +240,7 @@ void draw_grid(image *im, int stepx, int stepy) {
   int w= im->width;
   int h= im->height;
   int x, y;
-  short *p;
+  gray *p;
 
   for (y= 0; y < h; y++) {
     p= im->channel[0] + y * w;
@@ -262,7 +262,7 @@ void darker_image(image *a, image *b) {
   int depth= a->depth;
   if (depth != 1) error("invalid depth");
   int i;
-  short *pa, *pb;
+  gray *pa, *pb;
   if (b->height != h || b->width != w) error("darker_image: size mismatch.");
   if (b->depth != depth) error("darker_image: depth mismatch.");
   pa= a->channel[0]; pb= b->channel[0];
@@ -287,12 +287,12 @@ void calc_statistics(image *im, int verbose) {
   vector *ha= make_vector(256);
   ha->len= ha->size;
   real *pa= ha->data;
-  real area, border, thickness, black, gray, white;
+  real area, border, thickness, black, graythr, white;
   int i, x, y, t;
   int h= im->height, w= im->width;
-  short *pi= im->channel[0];
-  short *px= pi + 1;
-  short *py= pi + w;
+  gray *pi= im->channel[0];
+  gray *px= pi + 1;
+  gray *py= pi + w;
   short a, b, c;
   uint d;
   // histograms
@@ -319,7 +319,7 @@ void calc_statistics(image *im, int verbose) {
   cumul_vector(hb);
   // for (i= 0; i < 256; i++) {thr->data[i] /= sqrt(hb->data[i] + 4);}
   t= index_of_max(thr);
-  gray= t / 255.0;
+  graythr= t / 255.0;
   // border, area, thickness, nchars
   border= hb->data[t] * 0.8;
   cumul_vector(ha);
@@ -339,19 +339,19 @@ void calc_statistics(image *im, int verbose) {
   white /= (w * h - area) * 255.0;
   if (verbose) {printf(
       "black: %g gray: %g white: %g thickness: %g area: %g \n",
-      black, gray, white, thickness, area 
+      black, graythr, white, thickness, area 
   );}
   im->black= black;
-  im->gray= gray;
+  im->graythr= graythr;
   im->white= white;
   im->thickness= thickness;
   im->area= area;
 }
 
 void fill_image(image *im, real v) {
-  short s= MAXVAL * v;
+  gray s= MAXVAL * v;
   int i;
-  short *p, *end;
+  gray *p, *end;
   for (i= 0; i < im->depth; i++) {
     for (
       p= im->channel[i], end= p + (im->width * im->height);

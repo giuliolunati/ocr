@@ -6,7 +6,7 @@
   // srgb < 0.04045: lin= srgb / 12.92
   // srgb > 0.04045: lin= [(srgb + 0.055) / 1.055]^2.4
 
-short *srgb_to_lin= NULL;
+gray *srgb_to_lin= NULL;
 uchar *srgb_from_lin= NULL;
 
 void ensure_init_srgb() {
@@ -36,7 +36,7 @@ void ensure_init_srgb() {
   assert(srgb_to_lin[255] <= MAXVAL);
   assert(srgb_from_lin[MAXVAL] == 255);
   for (s= 0; s <= 255; s ++) assert(
-    s == (srgb_from_lin[srgb_to_lin[s]])
+    s == (srgb_from_lin[(int)srgb_to_lin[s]])
   );
 }
 
@@ -48,7 +48,7 @@ image *make_image(int width, int height, int depth) {
   assert(1 <= depth && depth <= 4);
   if (height < 1 || width < 1) error("make_image: size <= 0");
   int i;
-  short *p;
+  gray *p;
   image *im= malloc(sizeof(image));
   if (! im) error("make_image: can't alloc memory");
   for (i= 0; i < depth; i ++) {
@@ -62,7 +62,7 @@ image *make_image(int width, int height, int depth) {
   im->depth= depth;
   im->ex= default_ex;
   im->pag= 0;
-  im->black= im->gray= im->white= -1;
+  im->black= im->graythr= im->white= -1;
   im->area= im->thickness= -1;
   return im;
 }
@@ -79,7 +79,7 @@ void destroy_image(image *im) {
 image *copy_image(image *im) {
   image *r= malloc(sizeof(*r));
   memcpy(r, im, sizeof(*r));
-  short *p;
+  gray *p;
   int i, d= im->depth;
   uint len= im->width * im->height * sizeof(*p);
   for (i=0; i<d; i++) {
@@ -96,7 +96,7 @@ image *read_image(FILE *file, int sigma) {
   ulong i;
   int z;
   char c;
-  short *p, v;
+  gray *p, v;
 
   if (1 > fscanf(file, "P%d ", &depth)) {
     error("read_image: wrong magic.");
@@ -140,7 +140,7 @@ image *read_image(FILE *file, int sigma) {
       for (x= 0; x < width; x++, i++) {
         for (z= 0; z < depth; z++, ps++) {
           v= *ps - 128;
-          *(im->channel[z] + i)= KSKP * v / (KS - abs(v));
+          *(im->channel[z] + i)= KSKP * v / (KS - fabs(v));
         }
       }
     }
@@ -173,7 +173,7 @@ void write_image(image *im, FILE *file, int sigma) {
   int x, y;
   int width= im->width, height= im->height, depth=im->depth;
   uchar *buf, *pt;
-  short v, *p;
+  gray v, *p;
   ulong i;
   int z;
   assert(file);
@@ -198,7 +198,7 @@ void write_image(image *im, FILE *file, int sigma) {
       for (x= 0; x < width; x++, i++) {
         for (z= 0; z < depth; z++, pt++) {
           v= *(im->channel[z] + i);
-          v= KS * v / (KSKP + abs(v));
+          v= KS * v / (KSKP + fabs(v));
           *pt= v + 128;
         }
       }

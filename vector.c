@@ -35,10 +35,10 @@ vector *copy_vector(vector *v0) {
   return v;
 }
 
-void import_vector(vector *v, short *data, int len, int step) {
+void import_vector(vector *v, gray *data, int len, int step) {
   int i, d= v->step;
   real *pv;
-  short *pd;
+  gray *pd;
 
   assert(v->size >= len);
   v->len= len;
@@ -49,10 +49,10 @@ void import_vector(vector *v, short *data, int len, int step) {
   ) { *pv= *pd; }
 }
 
-void export_vector(vector *v, short *data, int len, int step) {
+void export_vector(vector *v, gray *data, int len, int step) {
   int i, d= v->step;
   real *pv;
-  short *pd;
+  gray *pd;
   assert(v->len == len);
   for (
     i= 0, pv= v->data, pd= data;
