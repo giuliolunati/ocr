@@ -234,41 +234,36 @@ assert(border==0);
   { for(x=1; x<w-1; x++, po++) *po= mean; }
   
   fprintf(stderr, "mean=%f\n", mean);
-  if (MAX(w,h) > 128) {
+  if (MAX(w,h) > 32) {
     deconvolution_3x3_step(
         im, om, 0,
         a, b, c, d,
         4, 0.5
     );
     im2= copy_image(om);
-    convolution_3x3(im2, a, b, c, d, border);
+    convolution_3x3(im2, a, b, c, d, 0);
     po= im2->channel[0];
     pi= im->channel[0];
     for (x=w; x>0; x--) for (y=h; y>0; y--)
     { *po= *pi - *po; po++, pi++;}
     if (w > h) {
-      him= image_half_x(im2, 1);
+      him= image_half_x(im2);
       hom= deconvolution_3x3(
           him, b+a*3/4 , b/2+a/8, d+c*3/4, d/2+c/8, steps * 2
       );
-      om2= image_double_x(hom, 1, w%2);
-      err= deconvolution_3x3_step(
-          im2, om2, 0,
-          b+a*3/4 , b/2+a/8, d+c*3/4, d/2+c/8,
-          steps, 0.5
-      );
+      om2= image_double_x(hom, w%2);
     } else { // h >= w
-      him= image_half_y(im2, 1);
+      him= image_half_y(im2);
       hom= deconvolution_3x3(
           him, c+a*3/4 , d+b*3/4, c/2+a/8, d/2+b/8, steps * 2
       );
-      om2= image_double_y(hom, 1, h%2);
-      err= deconvolution_3x3_step(
-          im2, om2, 0,
-          c+a*3/4 , d+b*3/4, c/2+a/8, d/2+b/8,
-          steps, 0.5
-      );
+      om2= image_double_y(hom, h%2);
     }
+    err= deconvolution_3x3_step(
+        im2, om2, 0,
+        a, b, c, d,
+        steps, 0.5
+    );
     fprintf(stderr, "err=%f\n", err);
     destroy_image(him);
     destroy_image(hom);

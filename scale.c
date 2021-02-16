@@ -80,27 +80,21 @@ image *half_size(image *im) {
   return om;
 }
 
-image *image_half_x(image *im, int border) {
+image *image_half_x(image *im) {
   int depth= im->depth;
   assert(depth == 1);
-  if (border) border= 1;
   int wi= im->width;
   int h= im->height;
   image *om;
   int wo, x, y;
   gray *pi, *po;
-  wo= (wi - wi%1) / 2 + border; 
+  wo= (wi - wi%1) / 2; 
   om= make_image(wo, h, depth);
   if (wi % 2) { // odd
     for (y= 0; y < h; y ++) {
       pi= im->channel[0] + (y * wi);
       po= om->channel[0] + (y * wo);
-      if (border) {
-        *po= *pi;
-        *(po + wo - 1)= *(pi + wi - 1);
-        po++; pi++;
-      }
-      for (x=0; x < wo-2*border; x++,po++,pi+=2) {
+      for (x=0; x < wo; x++,po++,pi+=2) {
         *po= (int)(*pi + *(pi+1)*2 + *(pi+2)) / 4;
       }
     }
@@ -108,12 +102,7 @@ image *image_half_x(image *im, int border) {
     for (y= 0; y < h; y ++) {
       pi= im->channel[0] + (y * wi);
       po= om->channel[0] + (y * wo);
-      if (border) {
-        *po= *pi;
-        *(po + wo - 1)= *(pi + wi - 1);
-        po++; pi++;
-      }
-      for (x=0; x < wo-2*border; x++,po++,pi+=2) {
+      for (x=0; x < wo; x++,po++,pi+=2) {
         *po= (int)(*pi + *(pi+1)) / 2;
       }
     }
@@ -121,37 +110,28 @@ image *image_half_x(image *im, int border) {
   return om;
 }
 
-image *image_half_y(image *im, int border) {
+image *image_half_y(image *im) {
   int depth= im->depth;
   assert(depth == 1);
-  if (border) border= 1;
   int w= im->width;
   int hi= im->height;
   image *om;
   int ho, x, y;
   gray *pi, *po;
-  ho= (hi - hi%2) / 2 + border; 
+  ho= (hi - hi%2) / 2; 
   om= make_image(w, ho, depth);
-  if (border) {
-    po= om->channel[0];
-    pi= im->channel[0];
-    memcpy(po, pi, w * sizeof(*po));
-    po += (ho - 1) * w;
-    pi += (hi - 1) * w;
-    memcpy(po, pi, w * sizeof(*po));
-  }
   if (hi % 2) { // odd
-    for (y= border; y < ho - border; y ++) {
+    for (y= 0; y < ho; y ++) {
       po= om->channel[0] + w * y;
-      pi= im->channel[0] + w * (y*2 -border +1);
+      pi= im->channel[0] + w * (y*2 +1);
       for (x=0; x < w; x++, po++, pi++) {
         *po= (int)(*(pi-w) + (*pi)*2 + *(pi+w)) / 4;
       }
     }
   } else { // even
-    for (y= border; y < ho - border; y ++) {
+    for (y= 0; y < ho; y ++) {
       po= om->channel[0] + w * y;
-      pi= im->channel[0] + w * (y*2 -border +1);
+      pi= im->channel[0] + w * (y*2 +1);
       for (x=0; x < w; x++, po++, pi++) {
         *po= (int)(*(pi-w) + (*pi)) / 2;
       }
@@ -160,67 +140,51 @@ image *image_half_y(image *im, int border) {
   return om;
 }
 
-image *image_double_x(image *im, int border, int odd) {
+image *image_half(image *im) {
+  image *t= image_half_x(im);
+  im= image_half_y(t);
+  destroy_image(t);
+  return im;
+}
+
+image *image_double_x(image *im, int odd) {
   int depth= im->depth;
   assert(depth == 1);
-  if (border) border= 1;
   if (odd) odd= 1;
   int wi= im->width;
   int h= im->height;
   image *om;
   int wo, x, y;
   gray *pi, *po;
-  wo= (wi - border)*2 + odd; 
+  wo= wi*2 + odd; 
   om= make_image(wo, h, depth);
   pi= im->channel[0];
   po= om->channel[0];
   if (odd) {
-    // border:
-      // i: 0   1   2   3   4
-      // o: 0 1 2 3 4 5 6 7 8
-    // no border:
-      // i:   0   1   2   3
-      // o: 0 1 2 3 4 5 6 7 8
+    // i:   0   1   2   3
+    // o: 0 1 2 3 4 5 6 7 8
     for (y= 0; y < h; y ++) {
       *po= *pi; po++;
       // i=0, o=1
-      if (border) {
-        *po= (int)(*pi + *(pi+1)) /2 ;
-        po++; pi++;
-        // i=1, o=2
-      }
-      for (x=0; x<wi-1-border; x++) {
+      for (x=0; x<wi-1; x++) {
         *po= *pi; po++;
         *po= (int)(*pi + *(pi+1)) / 2;
         po++; pi++;
       }
-      if (! border) { *po= *pi; po++; }
+      *po= *pi; po++;
       *po= *pi;
       po++; pi++;
     }
   } else { // even
-    // border:
-      // i: 0  1   2   3  4
-      // o: 0 1 2 3 4 5 6 7
-    // no border:
-      // i:  0   1   2   3
-      // o: 0 1 2 3 4 5 6 7
+    // i:  0   1   2   3
+    // o: 0 1 2 3 4 5 6 7
     for (y= 0; y < h; y++) {
       *po= *pi; po++;
       // i=0, o=1
-      if (border) {
-        *po= (int)(*pi + *(pi+1) * 3) / 4;
-        po++; pi++;
-        // i=1, o=2
-      }
-      for (x=0; x < wi-1-2*border; x++) {
+      for (x=0; x < wi-1; x++) {
         *po= (int)(*pi * 3 + *(pi+1)) / 4;
         po++;
         *po= (int)(*pi + *(pi+1) * 3) / 4;
-        po++; pi++;
-      }
-      if (border) {
-        *po= (int)(*pi * 3 + *(pi+1)) / 4;
         po++; pi++;
       }
       *po= *pi;
@@ -230,17 +194,16 @@ image *image_double_x(image *im, int border, int odd) {
   return om;
 }
 
-image *image_double_y(image *im, int border, int odd) {
+image *image_double_y(image *im, int odd) {
   int depth= im->depth;
   assert(depth == 1);
-  if (border) border= 1;
   if (odd) odd= 1;
   int w= im->width;
   int hi= im->height;
   image *om;
   int ho, x, i;
   gray *pi, *po;
-  ho= (hi - border)*2 +odd;
+  ho= hi*2 +odd;
   om= make_image(w, ho, depth);
   po= om->channel[0];
   pi= im->channel[0];
@@ -249,55 +212,27 @@ image *image_double_y(image *im, int border, int odd) {
   po += w;
   // i=0, o=1
   if (odd) {
-    // border:
-      // i: 0   1   2   3   4
-      // o: 0 1 2 3 4 5 6 7 8
-    // no border:
-      // i:   0   1   2   3
-      // o: 0 1 2 3 4 5 6 7 8
-    if (border) {
-      for (x=0; x<w; x++,po++,pi++) {
-        *po= (int)(*pi + *(pi+w)) / 2;
-        // i=1, o=2
-      }
-    }
-    for (i=0; i<hi-1-border; i++) {
+    // i:   0   1   2   3
+    // o: 0 1 2 3 4 5 6 7 8
+    for (i=0; i<hi-1; i++) {
       memcpy(po, pi, w * sizeof(*po));
       po += w;
       for (x=0; x<w; x++,po++,pi++) {
         *po= (int)(*pi + *(pi+w)) / 2;
       }
     }
-    if (! border) {
-      memcpy(po, pi, w * sizeof(*po));
-      po += w;
-    }
+    memcpy(po, pi, w * sizeof(*po));
+    po += w;
   } else { // even
-    // border:
-      // i: 0  1   2   3  4
-      // o: 0 1 2 3 4 5 6 7
-    // no border:
-      // i:  0   1   2   3
-      // o: 0 1 2 3 4 5 6 7
+    // i:  0   1   2   3
+    // o: 0 1 2 3 4 5 6 7
     memcpy(po, pi, w * sizeof(*po));
     po += w;
     // i=0, o=1
-    if (border) {
-      for (x=0; x<w; x++,po++,pi++) {
-        *po= (int)(*pi + *(pi+w) * 3) / 4;
-      }
-      // i=1, o=2
-    }
-    for (i=0; i<hi-1-2*border; i++,po+=w) {
+    for (i=0; i<hi-1; i++,po+=w) {
       for (x=0; x<w; x++,po++,pi++) {
         *po= (int)(*pi * 3 + *(pi+w)) / 4;
         *(po+w)= (int)(*pi + *(pi+w)*3) / 4;
-      }
-    }
-    if (border) {
-      // i=hi-2, o=ho-2
-      for (x=0; x<w; x++,po++,pi++) {
-        *po= (int)(*pi * 3 + *(pi+w)) / 4;
       }
     }
   }
@@ -306,5 +241,11 @@ image *image_double_y(image *im, int border, int odd) {
   return om;
 }
 
+image *image_double(image *im, int oddx, int oddy) {
+  image *t= image_double_x(im, oddx);
+  im= image_double_y(t, oddy);
+  destroy_image(t);
+  return im;
+}
 
 // vim: sw=2 ts=2 sts=2 expandtab:
