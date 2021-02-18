@@ -64,7 +64,7 @@ void cumul_vector(vector *v);
 void darker_image(image *a, image *b);
 void deconvolution_1x3(image *im, real a, real b, real c, int border);
 void deconvolution_3x1(image *im, real a, real b, real c, int border);
-image *deconvolution_3x3(image *im, real a, real b, real c, real d, int steps);
+image *deconvolution_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr);
 real default_ex;
 void destroy_image(image *im);
 void destroy_vector(vector *h);

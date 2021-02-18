@@ -90,7 +90,9 @@ void deconvolution_3x1(image *im, real a, real b, real c, int border) {
   th= solve_tridiagonal(aa, bb, cc, n);
   for (y=1-border ; y < h-1+border; y++) {
     s= im->channel[0] + n*y;
-    for (i= 0; i < n; i++) v[i]= s[i];
+    for (i= 0; i < n; i++) {
+      v[i]= s[i];
+    }
     for (i= 0; i < n-1; i++) {
       p = sin(th[i]); q = cos(th[i]);
       r= p * v[i] + q * v[i+1];
@@ -103,7 +105,9 @@ void deconvolution_3x1(image *im, real a, real b, real c, int border) {
       assert(bb[i] != 0);
       v[i] /= bb[i];
     }
-    for (i= 0; i < n; i++) s[i]= v[i];
+    for (i= 0; i < n; i++) {
+      s[i]= v[i];
+    }
   }
   free(aa); free(bb); free(cc);
   free(th); free(v);
@@ -148,139 +152,196 @@ void deconvolution_1x3(image *im, real a, real b, real c, int border) {
   free(th); free(v);
 }
 
+float deconvolution_3x3_step_old(
+    image *im, image *om, int chan,
+    real a, real b, real c, real d,
+    int steps, float maxerr
+  ) {
+  int i, x, y, w= im->width, h= im->height;
+  fprintf(stderr, "%dx%d \n", w,h);
+  double t, err;
+  gray *pi, *po;
+  image *im2= NULL;
+  // y = Ax
+  // A = PQ-R
+  // y = PQx - Rx
+  // (PQ)^-1 (y+Rx) = x
+  real p= sqrt(fabs(a)), q= a/p;
+  real p1= b/p, q1= c/q;
+  real r= p1*q1 - d;
+  for (i=steps; i>0; i--) {
+    pi= im->channel[0];
+    po= om->channel[0];
+    for (x= 0; x < w; x++,pi++,po++)
+    { *po= *pi; }
+    for (y= 1; y < h-1; y++) {
+      *po= *pi; pi += w-1, po += w-1;
+      *po= *pi; pi++, po++;
+    }
+    for (x= 0; x < w; x++,pi++,po++)
+    { *po= *pi; }
+    convolution_3x3(om, 0,0,0,r, 0);
+    // om += im
+    for (y= 1; y < h-1; y++) {
+      pi= im->channel[0] + y*w + 1;
+      po= om->channel[0] + y*w + 1;
+      for (x= 1; x < w-1; x++,pi++,po++)
+      { *po += *pi; }
+    }
+    deconvolution_3x1(om, p1, p, p1, 0);
+    deconvolution_1x3(om, q1, q, q1, 0);
+  }
+  assert(! im2);
+  im2= copy_image(om);
+  convolution_3x3(im2, a,b,c,d, 0);
+  pi= im2->channel[0];
+  po= im->channel[0];
+  err= 0;
+  for (y= 0; y < h; y++)
+  for (x= 0; x < w; x++,pi++,po++) {
+    t= *po - *pi;
+    err += t*t;
+  }
+  destroy_image(im2);
+  err= sqrt(err / (w*h));
+  if (err > 999) {
+    fprintf(stderr, "p=%f p1=%f q=%f q2=%f r=%f \n", p,p1,q,q1,r);
+    write_image(om, stdout, 0);
+    error(".");
+  }
+  return err;
+}
 
 float deconvolution_3x3_step(
     image *im, image *om, int chan,
     real a, real b, real c, real d,
     int steps, float maxerr
-) {
+  ) {
+  //fprintf(stderr, "abcd= %f %f %f %f \n", a,b,c,d);
   int n, x, y, dx, w= im->width, h= im->height;
-  float k= a*a;
-  k /= k + 4*d*d + 2*b*b + 2*c*c;
-  fprintf(stderr, "k=%f\n", k);
-  gray *pi, *po, *pu, *pd;
-  float del, err;
-  for (n=0; n<steps; n++) {
+  float k= a*a / (a*a + 2*b*b + 2*c*c + 4*d*d);
+  gray *po, *pi, *pu, *pd;
+  double t, err;
+  for (n=0; n!= steps-1; n++) {
     if (n%2 == 0) err= 0;
     for (y= 1; y < h-1; y++) {
       dx= (n+y)%2;
-      pi= im->channel[chan] + y*w + 1 + dx;
       po= om->channel[chan] + y*w + 1 + dx;
+      pi= im->channel[chan] + y*w + 1 + dx;
       pu= po - w; pd= po + w;
       for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
-        del= ((float) *pi
+        t= ( *pi
         - b * (*(po-1) + *(po+1))
         - c * (*pu + *pd)
         - d * (*(pu+1) + *(pu-1) + *(pd+1) + *(pd-1))
-        ) / a - *po;
-        *po += k*del;
-        del= a * fabs(del);
-        if (del > err) err= del;
+        ) / a;
+        t -= *po;
+        *po += t*1.618;
+        err += t*t;
       } 
     }
+    if (n%2 == 0) continue;
+    err /= (w-2)*(h-2);
+    err= sqrt(err);
     if (err < maxerr) break;
   }
   return err;
 }
-
-image *deconvolution_3x3(image *im, real a, real b, real c, real d, int steps) {
+int ID=0;
+image *deconvolution_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr) {
   // D-E = a  b   = a b = F
   //       ak bk-e  c d
   // Y = FX = DX - EX
   // D\(Y + EX) = X
-int border= 0;
   assert(a != 0);
-  int n,x,y,w= im->width, h= im->height;
-fprintf(stderr, "%dx%d \n", w,h);
-  int dx;
+  float err;
   image *him, *hom, *om, *im2, *om2;
-  vector *v= make_vector(MAX(w,h));
-  gray *pi= im->channel[0];
-  gray *po, *pu, *pd;
-  float mean, err;
+  int n,x,y,w= im->width, h= im->height;
   om= make_image(w, h, 1);
+  gray *pi= im->channel[0];
+  gray *po= om->channel[0];
+  // border
+  err= 0;
+  pi= im->channel[0];
   po= om->channel[0];
-  // deconvolve border
-  // top
-assert(border==0);
-  mean= 0;
-  import_vector(v,pi,w,1);
-  if (border) vector_deconvolution_3(v, 2*d+b, 2*c+a, 2*d+b, 0);
-  export_vector(v,po,w,1);
-  // left
-  import_vector(v,pi,h,w);
-  if (border) vector_deconvolution_3(v, 2*d+c, 2*b+a, 2*d+c, 0);
-  export_vector(v,po,h,w);
-  // bottom
-  import_vector(v,pi+h*w-w,w,1);
-  if (border) vector_deconvolution_3(v, 2*d+b, 2*c+a, 2*d+b, 0);
-  export_vector(v,po+h*w-w,w,1);
-  // right
-  import_vector(v,pi+w-1,h,w);
-  if (border) vector_deconvolution_3(v, 2*d+c, 2*b+a, 2*d+c, 0);
-  export_vector(v,po+w-1,h,w);
+  for (x= 0; x < w; x++,pi++,po++)
+  { err += *po= *pi; }
+  for (y= 1; y < h-1; y++) {
+  err += *po= *pi; pi += w-1, po += w-1;
+  err += *po= *pi; pi++, po++;
+  }
+  for (x= 0; x < w; x++,pi++,po++)
+  { err += *po= *pi; }
+  err /= 2*(w+h) - 4;
+  for (y= 1; y < h-1; y++) {
+    pi= im->channel[0] + y*w + 1;
+    po= om->channel[0] + y*w + 1;
+    for (x= 1; x < w-1; x++,pi++,po++) *po= err;
+  }
   // inner
-  mean= 0;
-  po= om->channel[0]+1;
-  for (x= 1; x < w-1; x++, po++) mean += *po;
-  po= om->channel[0]+w;
-  for (y= 1; y < h-1; y++, po+=w)
-  { mean += *(po) + *(po+w-1); }
-  po= om->channel[0]+ w*h-w+1;
-  for (x= 1; x < w-1; x++, po++) mean += *po;
-  mean /= 2*(w+h-4);
-  po= om->channel[0]+w+1;
-  for (y=1; y<h-1; y++, po+=2)
-  { for(x=1; x<w-1; x++, po++) *po= mean; }
-  
-  fprintf(stderr, "mean=%f\n", mean);
-  if (MAX(w,h) > 32) {
+  int l= MAX(w,h);
+  if (l > 64) for (n=3; n>0; n--) {
     deconvolution_3x3_step(
         im, om, 0,
         a, b, c, d,
-        4, 0.5
+        4, 0
     );
     im2= copy_image(om);
-    convolution_3x3(im2, a, b, c, d, 0);
-    po= im2->channel[0];
+    convolution_3x3(im2, a,b,c,d, 0);
     pi= im->channel[0];
-    for (x=w; x>0; x--) for (y=h; y>0; y--)
-    { *po= *pi - *po; po++, pi++;}
-    if (w > h) {
-      him= image_half_x(im2);
-      hom= deconvolution_3x3(
-          him, b+a*3/4 , b/2+a/8, d+c*3/4, d/2+c/8, steps * 2
-      );
-      om2= image_double_x(hom, w%2);
-    } else { // h >= w
-      him= image_half_y(im2);
-      hom= deconvolution_3x3(
-          him, c+a*3/4 , d+b*3/4, c/2+a/8, d/2+b/8, steps * 2
-      );
-      om2= image_double_y(hom, h%2);
-    }
-    err= deconvolution_3x3_step(
-        im2, om2, 0,
-        a, b, c, d,
-        steps, 0.5
+    po= im2->channel[0];
+    for (y= 0; y < h; y++)
+    for (x= 0; x < w; x++,pi++,po++) *po= *pi - *po;
+    him= image_half(im2);
+    hom= deconvolution_3x3(
+      him,
+      a*9/16 + b*3/4 + c*3/4 + d,
+      a*3/32 + b*3/8 + c/8 + d/2,
+      a*3/32 + b/8 + c*3/8 + d/2,
+      a/64 + b/16 + c/16 + d/4,
+      steps/2, maxerr*n
     );
-    fprintf(stderr, "err=%f\n", err);
+    om2= image_double(hom, w%2, h%2);
+    // om += om2
+    for (y= 1; y < h-1; y++) {
+      pi= om2->channel[0] + y*w + 1;
+      po= om->channel[0] + y*w + 1;
+      for (x= 1; x < w-1; x++,pi++,po++)
+      { *po += *pi; }
+    }
+    //fix border
+    pi= im->channel[0];
+    po= om->channel[0];
+    for (x= 0; x < w; x++,pi++,po++)
+    { *po= *pi; }
+    for (y= 1; y < h-1; y++) {
+    *po= *pi; pi += w-1, po += w-1;
+    *po= *pi; pi++, po++;
+    }
+    for (x= 0; x < w; x++,pi++,po++)
+    { *po= *pi; }
+
     destroy_image(him);
     destroy_image(hom);
     destroy_image(im2);
-    po= om->channel[0];
-    pi= om2->channel[0];
-    for (x=w; x>0; x--) for (y=h; y>0; y--)
-    { *po += *pi; po++; pi++;}
     destroy_image(om2);
   }
-    err= deconvolution_3x3_step(
-        im, om, 0,
-        a, b, c, d,
-        steps, 0.5
-    );
-  fprintf(stderr, "* err=%f\n", err);
-  destroy_vector(v);
+  if (MAX(w,h) <= -64) {
+    FILE *f;
+    f= fopen("im.pnm", "w");
+    write_image(im, f, 0);
+    fclose(f);
+    f= fopen("om.pnm", "w");
+    write_image(om, f, 0);
+    fclose(f);
+    exit(0);
+  }
+  err= deconvolution_3x3_step(
+      im, om, 0,
+      a, b, c, d,
+      steps, maxerr
+  );
+  fprintf(stderr, "w=%d err=%f\n", w, err);
   return om;
 }
 
