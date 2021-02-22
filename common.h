@@ -56,7 +56,7 @@ image *autocrop(image *im, int width, int height);
 void calc_statistics(image *im, int verbose);
 void clear_vector(vector *v);
 void contrast_image(image *im, real black, real white);
-void convolution_3x3(image *im, real a, real b, real c, real d, int border);
+void convolution_3x3(image *im, real a, real b, real c, real d);
 image *crop(image *im, int x1, int y1, int x2, int y2);
 image *copy_image(image *im);
 vector *copy_vector(vector *v0);

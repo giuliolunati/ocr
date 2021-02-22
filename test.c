@@ -7,7 +7,7 @@ int main(int argc, char **args) {
   int h= im->height;
   gray *p= im->channel[0];
   real a=2, b=-0.5; 
-  convolution_3x3(im, 4, -1, -1, 0, 0);
+  convolution_3x3(im, 4, -1, -1, 0);
   om= deconvolution_3x3(im, 4, -1, -1, 0, 0, x);
   write_image(om, stdout, 0);
 }
