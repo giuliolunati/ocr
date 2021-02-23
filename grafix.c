@@ -290,7 +290,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("laplacian")) {
-      convolution_3x3(im(1), 4, -1, -1, 0, 1);
+      convolve_3x3(im(1), 4, -1, -1, 0);
     }
     else
     if (ARG_IS("norm")) { // FLOAT
@@ -359,7 +359,7 @@ int main(int argc, char **args) {
     if (ARG_IS("test")) {
       if (! *(++arg)) error("test: missing parameter");
       x=  atof(*arg);
-      convolution_3x3(im(1), 4, -1, -1, 0, 2);
+      convolve_3x3(im(1), 4, -1, -1, 0);
     }
     else
     if (ARG_IS("w")) { // [s:]FILENAME
