@@ -1,9 +1,13 @@
+// INCLUDE'S //
 #include <stdio.h>
 #include <stdlib.h>
 #include <malloc.h>
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+
+
+// DEFINE'S //
 
 #define uchar unsigned char
 #define uint unsigned int
@@ -25,7 +29,8 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-// TYPES -- alphabetical order //
+
+// TYPES //
 
 typedef struct { // image
   char magic;
@@ -50,68 +55,78 @@ typedef struct { // vector
   uint size;
 } vector;
 
-// PROTOTYPES -- alphabetical order //
 
-image *autocrop(image *im, int width, int height);
-void calc_statistics(image *im, int verbose);
-void clear_vector(vector *v);
-void contrast_image(image *im, real black, real white);
+// PROTOTYPES //
+
+// convolution.c
 void convolve_3x3(image *im, real a, real b, real c, real d);
-image *crop(image *im, int x1, int y1, int x2, int y2);
-image *copy_image(image *im);
-vector *copy_vector(vector *v0);
-void cumul_vector(vector *v);
-void darker_image(image *a, image *b);
-void deconvolve_1x3(image *im, real a, real b, real c, int border);
 void deconvolve_3x1(image *im, real a, real b, real c, int border);
+void deconvolve_1x3(image *im, real a, real b, real c, int border);
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr);
-real default_ex;
-void destroy_image(image *im);
-void destroy_vector(vector *h);
-real detect_skew(image *im);
-void diff_vector(vector *v, uint d);
-void diff_image(image *a, image *b);
-void divide_image(image *a, image *b);
-image *double_size(image *im, real k /*hardness*/);
+
+// draw.c
 void draw_grid(image *im, int stepx, int stepy);
+void fill_image(image *im, real v);
+void poke(image *im, int x, int y, int chan, gray v);
+
+// image.c
+real default_ex;
 void ensure_init_srgb();
-void ensure_init_sigma();
+gray *srgb_to_lin;
+image *make_image(int width, int height, int depth);
+void destroy_image(image *im);
+image *copy_image(image *im);
+image *read_image(FILE *file, int sigma);
+void write_image(image *im, FILE *file, int sigma);
+
+// misc.c
 void error(const char *msg);
 void error1(const char *msg, const char *param);
-void fill_image(image *im, real v);
-void export_vector(vector *v, gray *data, int len, int step);
-image *half_size(image *im);
-vector *histogram_of_image(image *im, int chan);
 image *image_background(image *im);
-image *image_double_x(image *im, int odd);
-image *image_double_y(image *im, int odd);
-image *image_double(image *im, int oddx, int oddy);
+void divide_image(image *a, image *b);
+vector *histogram_of_image(image *im, int chan);
+void contrast_image(image *im, real black, real white);
+void normalize_image(image *im, real strength);
+void mean_y(image *im, uint d);
+void darker_image(image *a, image *b);
+void calc_statistics(image *im, int verbose);
+void diff_image(image *a, image *b);
+void patch_image(image *a, image *b);
+
+// scale.c
+image *double_size(image *im, real k /*hardness*/);
+image *half_size(image *im);
 image *image_half_x(image *im);
 image *image_half_y(image *im);
 image *image_half(image *im);
-void import_vector(vector *v, gray *data, int len, int step);
-uint index_of_max(vector *v);
-image *make_image(int width, int height, int depth);
-vector *make_vector(uint size);
-void mean_y(image *im, uint d);
-void normalize_image(image *im, real strength);
-void patch_image(image *a, image *b);
-void poisson_image(image *im, image *nlap);
-void poisson_vector(vector *target, vector *nlap);
-void poke(image *im, int x, int y, int chan, gray v);
-image *read_image(FILE *file, int sigma);
+image *image_double_x(image *im, int odd);
+image *image_double_y(image *im, int odd);
+image *image_double(image *im, int oddx, int oddy);
+
+// transform.c
 image *rotate_90_image(image *im, int angle);
 image *rotate_image(image *im, float angle);
-void shearx_image(image *im, real t);
-void sheary_image(image *im, real t);
-void skew(image* im, real angle);
-real *solve_tridiagonal(real *a, real *b, real *c, int n);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
-gray *srgb_to_lin;
-void vector_convolve_3(vector *v, real a, real b, real c, int border);
-void vector_deconvolve_3(vector *v, real a, real b, real c, int border);
-void write_image(image *im, FILE *file, int sigma);
+image *crop(image *im, int x1, int y1, int x2, int y2);
+void skew(image* im, real angle);
+real detect_skew(image *im);
+void shearx_image(image *im, real t);
+void sheary_image(image *im, real t);
+image *autocrop(image *im, int width, int height);
+
+// vector.c
+vector *make_vector(uint size);
+void clear_vector(vector *v);
+void destroy_vector(vector *h);
+vector *copy_vector(vector *v0);
+void import_vector(vector *v, gray *data, int len, int step);
+void export_vector(vector *v, gray *data, int len, int step);
 void write_vector(vector *v, FILE *f);
+void cumul_vector(vector *v);
+void diff_vector(vector *v, uint d);
+real *solve_tridiagonal(real *a, real *b, real *c, int n);
+void poisson_vector(vector *target, vector *nlap);
+uint index_of_max(vector *v);
 
 // vim: sw=2 ts=2 sts=2 expandtab:

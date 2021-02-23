@@ -289,7 +289,7 @@ int main(int argc, char **args) {
       push(v);
     }
     else
-    if (ARG_IS("laplacian")) {
+    if (ARG_IS("laplace")) {
       convolve_3x3(im(1), 4, -1, -1, 0);
     }
     else
@@ -313,8 +313,10 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("poisson")) {
-      poisson_image(im(2), im(1));
-      pop();
+      if (! *(++arg)) error("poisson: missing PRECISION");
+      t= atof(*arg);
+      push(deconvolve_3x3(im(1), 4, -1, -1, 0, 0, t));
+      swap(); pop();
     }
     else
     if (ARG_IS("quit")) exit(0);
