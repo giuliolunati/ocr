@@ -159,7 +159,7 @@ image *read_image(FILE *file, int sigma) {
     }
   }
   if (depth > 2) {
-  // RGB -> GBR, sono channel[0] is GReen/GRay ;-)
+  // RGB -> GBR, so channel[0] is GReen/GRay ;-)
     p= im->channel[0];
     im->channel[0]= im->channel[1];
     im->channel[1]= im->channel[2];
@@ -173,7 +173,8 @@ void write_image(image *im, FILE *file, int sigma) {
   int x, y;
   int width= im->width, height= im->height, depth=im->depth;
   uchar *buf, *pt;
-  gray v, *p;
+  float v;
+  gray *p;
   ulong i;
   int z;
   assert(file);
@@ -190,7 +191,8 @@ void write_image(image *im, FILE *file, int sigma) {
   fprintf(file, "%d %d\n255\n", width, height);
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
-
+  // TODO: don't modify im!
+  image_dither(im,1,1);
   if (sigma) {
     i= 0;
     for (y= 0; y < height; y++) {

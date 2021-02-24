@@ -290,7 +290,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("laplace")) {
-      convolve_3x3(im(1), 4, -1, -1, 0);
+      convolve_3x3(im(1), 1, -0.25, -0.25, 0);
     }
     else
     if (ARG_IS("norm")) { // FLOAT
@@ -315,7 +315,7 @@ int main(int argc, char **args) {
     if (ARG_IS("poisson")) {
       if (! *(++arg)) error("poisson: missing PRECISION");
       t= atof(*arg);
-      push(deconvolve_3x3(im(1), 4, -1, -1, 0, 0, t));
+      push(deconvolve_3x3(im(1), 1, -0.25, -0.25, 0, 0, t));
       swap(); pop();
     }
     else

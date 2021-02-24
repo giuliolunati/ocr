@@ -357,4 +357,50 @@ void patch_image(image *a, image *b) {
   }
 }
 
+void image_quantize(image *im, float step) {
+  int h= im->height;
+  int w= im->width;
+  int depth= im->depth;
+  gray *p= im->channel[0];
+  gray *end= p + w*h;
+  float v;
+  int i;
+  step *= KP;
+  for (; p < end; p++) {
+    v= *p;
+    *p = step * roundf(v/step);
+  }
+}
+
+void image_dither(image *im, int step, int border) {
+  step *= KP;
+  if (border) border= 1;
+  int h= im->height;
+  int w= im->width;
+  int depth= im->depth;
+  gray *p= im->channel[0];
+  gray *end= p + w*h;
+  gray ring[w*2];
+  int i= 0;
+  float v;
+  int x, y;
+  assert((MAXVAL+1) % step == 0);
+  for (y= border; y < h-border; y++) {
+    p= im->channel[0] + y*w + border;
+    for (x= border; x < w-border; x++,p++) {
+      v= *p;
+      *p= step * roundf((v+MAXVAL+1)/step) - MAXVAL-1;
+      v= (v-*p)/16;
+      if (x+1 < w-border) {
+        *(p+1) += 7*v;
+        if (y+1 < h-border) *(p+w+1) += v;
+      }
+      if (y+1 < h-border) {
+        if (x > border) *(p+w-1) += 3*v;
+        *(p+w) += 5*v;
+      }
+    }
+  }
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:
