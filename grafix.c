@@ -1,4 +1,5 @@
 #include "common.h"
+#include <errno.h>
 
 #define EQ(a, b) (0 == strcmp((a), (b)))
 #define IS_IMAGE(p) (((image *)p)->magic == 'I')
@@ -388,7 +389,8 @@ int main(int argc, char **args) {
             error1("name too long: %s", name);
           }
           strcat(cmd, name);
-          f= popen(cmd, "wb");
+          f= popen(cmd, "w");
+          if (! f) error1("Popen failed:", strerror(errno));
           write_image(p, f, c);
           pclose(f);
         } else if (l > 0) {
@@ -428,7 +430,8 @@ int main(int argc, char **args) {
           error1("name too long: %s", *arg);
         }
         strcat(cmd, *arg);
-        f= popen(cmd, "rb");
+        f= popen(cmd, "r");
+        if (! f) error1("Popen failed:", strerror(errno));
         img= read_image(f, c);
         pclose(f);
       } else {
