@@ -71,7 +71,9 @@ void destroy_image(image *im) {
   if (! im) return;
   int i;
   for (i= 0; i < 4; i ++) {
-    if (im->channel[i]) free(im->channel[i]);
+    if (im->channel[i]) {
+      free(im->channel[i]);
+    }
   }
   free(im);
 }
@@ -98,6 +100,7 @@ image *read_image(FILE *file, int sigma) {
   char c;
   gray *p, v;
 
+  assert(file);
   if (1 > fscanf(file, "P%d ", &depth)) {
     error("read_image: wrong magic.");
   }
