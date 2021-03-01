@@ -175,7 +175,6 @@ float deconvolve_3x3_step_old(
   return err;
 }
 
-#define NN 16
 float deconvolve_3x3_step(
     image *im, image *om,
     real a, real b, real c, real d,
@@ -189,8 +188,8 @@ float deconvolve_3x3_step(
   for (z= 0; z < depth; z ++) {
     for (n=0; n!= steps-1; n++) {
       fprintf(stderr, "%c", n%10+48);
-      if (n%NN < 2) {
-        if (n%NN == 0) err1= 0;
+      if (n%16 < 2) {
+        if (n%16 == 0) err1= 0;
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
           po= om->channel[z] + y*w + 1 + dx;
@@ -206,7 +205,7 @@ float deconvolve_3x3_step(
           }
         }
         fprintf(stderr, "");
-        if (n%NN == 1) {
+        if (n%16 == 1) {
           err1 /= (w-2) * (h-2);
           err1= sqrt(err1);
           if (err1 <= maxerr) break;
@@ -235,9 +234,7 @@ float deconvolve_3x3_step(
   }
   return err;
 }
-#undef NN
 
-int ID=0;
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr) {
   image *him, *hom, *om, *im2, *om2;
   int z, n, x, y;
@@ -293,7 +290,7 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
         a/64 + b/16 + c/16 + d/4,
         steps/2, maxerr*n*0.5
     );
-    om2= image_double(hom, w%2, h%2);
+    om2= image_redouble(hom, w%2, h%2);
     for (z= 0; z < depth; z++) {
       // om += om2
       for (y= 1; y < h-1; y++) {

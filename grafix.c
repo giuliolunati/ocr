@@ -232,7 +232,7 @@ int main(int argc, char **args) {
     if (ARG_IS("double")) { // FLOAT
       if (! *(++arg)) error("double: missing HARDNESS parameter");
       x= atof(*arg);
-      push(double_size(im(1), x));
+      push(image_double(im(1), x));
       swap(); pop();
     }
     else
@@ -279,7 +279,7 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("half")) {
-      push(half_size(im(1)));
+      push(image_half(im(1)));
       swap(); pop();
     }
     else

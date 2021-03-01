@@ -15,6 +15,7 @@
 #define real float
 #define gray float
 
+#define ASSERT(cond) assert(cond)
 #define MAXSHORT 32767
 
 // used for encoding in read/write_image
@@ -96,14 +97,13 @@ void image_quantize(image *im, float step);
 void image_dither(image *im, int step, int border);
 
 // scale.c
-image *double_size(image *im, real k /*hardness*/);
-image *half_size(image *im);
+image *image_double(image *im, real k /* hardness */);
 image *image_half_x(image *im);
 image *image_half_y(image *im);
 image *image_half(image *im);
-image *image_double_x(image *im, int odd);
-image *image_double_y(image *im, int odd);
-image *image_double(image *im, int oddx, int oddy);
+image *image_redouble_x(image *im, int odd);
+image *image_redouble_y(image *im, int odd);
+image *image_redouble(image *im, int oddx, int oddy);
 
 // transform.c
 image *rotate_90_image(image *im, int angle);
