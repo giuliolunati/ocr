@@ -322,4 +322,175 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
   return om;
 }
 
+void image_laplace(image *im, real k) {
+  // d c d
+  // b a b  symmetric 3x3 kernel
+  // d c d
+  int depth= im->depth;
+  int w= im->width, h= im->height;
+  int z, x, y;
+  int len= w * sizeof(gray);
+  gray *buf= (gray *) malloc(3 * len);
+  if (! buf) error("convolve_3x3: out of memory.");
+  for (z= 0; z < depth; z ++) {
+    memcpy(buf, im->channel[z], 2 * len);
+    gray *i0, *i1, *i2, *o;
+    o= im->channel[z] + w;
+    for (y=1; y < h-1; y++) {
+      i0= buf; i1= i0 + w; i2 = i1 + w;
+      memcpy(i2, o + w, len);
+      for (x= 0; x < w-2; x++) {
+        o++;
+        *o= (real) k * (
+          + (*i1) + *(i1+2) + *(i0+1) + *(i2+1)
+          -4 * *(i1+1)
+        );
+        i0++, i1++, i2++;
+      }
+      o += 2;
+      memmove(buf, buf + w, 2 * len);
+    }
+  }
+  free(buf);
+}
+
+float image_poisson_step(
+    image *im, image *om,
+    real k,
+    int steps, float maxerr
+  ) {
+  int z, n, x, y, dx;
+  int depth= im->depth, w= im->width, h= im->height;
+  gray *po, *pi, *pu, *pd;
+  double t, err1, err= 0;
+  for (z= 0; z < depth; z ++) {
+    for (n=0; n!= steps-1; n++) {
+      fprintf(stderr, "%c", n%10+48);
+      if (n%16 < 2) {
+        if (n%16 == 0) err1= 0;
+        for (y= 1; y < h-1; y++) {
+          dx= (n+y)%2;
+          po= om->channel[z] + y*w + 1 + dx;
+          pi= im->channel[z] + y*w + 1 + dx;
+          pu= po - w; pd= po + w;
+          for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
+            t= ( *pi/k
+              - *(po-1) - *(po+1) - *pu - *pd
+            ) / -4 - *po;
+            err1 += t*t;
+          }
+        }
+        fprintf(stderr, "");
+        if (n%16 == 1) {
+          err1 /= (w-2) * (h-2);
+          err1= sqrt(err1);
+          if (err1 <= maxerr) break;
+        }
+      } else {
+        for (y= 1; y < h-1; y++) {
+          dx= (n+y)%2;
+          po= om->channel[z] + y*w + 1 + dx;
+          pi= im->channel[z] + y*w + 1 + dx;
+          pu= po - w; pd= po + w;
+          for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
+            t= ( *pi/k
+              - *(po-1) - *(po+1) - *pu - *pd
+            ) / -4;
+            t -= *po;
+            *po += t*1.0;
+            err1 += t*t;
+          } 
+        }
+        fprintf(stderr, "");
+      }
+    }
+    err= MAX(err, err1);
+  }
+  return err;
+}
+
+image *image_poisson(image *im, real k, int steps, float maxerr) {
+  image *him, *hom, *om, *im2, *om2;
+  int z, n, x, y;
+  int depth= im->depth, w= im->width, h= im->height;
+  om= make_image(w, h, depth);
+  gray *pi, *po;
+  real err, mean;
+  // border
+  for (z= 0; z < depth; z++) {
+    mean= 0;
+    pi= im->channel[z];
+    po= om->channel[z];
+    for (x= 0; x < w; x++,pi++,po++)
+    { mean += *po= *pi; }
+    for (y= 1; y < h-1; y++) {
+      mean += *po= *pi; pi += w-1, po += w-1;
+      mean += *po= *pi; pi++, po++;
+    }
+    for (x= 0; x < w; x++,pi++,po++)
+    { mean += *po= *pi; }
+    mean /= 2*(w+h) - 4;
+    for (y= 1; y < h-1; y++) {
+      pi= im->channel[z] + y*w + 1;
+      po= om->channel[z] + y*w + 1;
+      for (x= 1; x < w-1; x++,pi++,po++) {
+        *po= mean;
+      }
+    }
+  }
+  // inner
+  int l= MAX(w,h);
+  if (l > 64) for (n= 3; n>0; n--) {
+    fprintf(stderr, "%d", n);
+    image_poisson_step(
+        im, om,
+        k,
+        7, 0
+    );
+    im2= copy_image(om);
+    image_laplace(im2, k);
+    for (z= 0; z < depth; z++) {
+      pi= im->channel[z];
+      po= im2->channel[z];
+      for (y= 0; y < h; y++)
+      for (x= 0; x < w; x++,pi++,po++) *po= *pi - *po;
+    }
+    him= image_half(im2);
+    hom= image_poisson(
+        him,
+        k/4,
+        steps/2, maxerr*n*0.5
+    );
+    om2= image_redouble(hom, w%2, h%2);
+    for (z= 0; z < depth; z++) {
+      // om += om2
+      for (y= 1; y < h-1; y++) {
+        pi= om2->channel[z] + y*w + 1;
+        po= om->channel[z] + y*w + 1;
+        for (x= 1; x < w-1; x++,pi++,po++) *po += *pi;
+      }
+      //fix border
+      pi= im->channel[z];
+      po= om->channel[z];
+      for (x= 0; x < w; x++,pi++,po++) *po= *pi;
+      for (y= 1; y < h-1; y++) {
+        *po= *pi; pi += w-1, po += w-1;
+        *po= *pi; pi++, po++;
+      }
+      for (x= 0; x < w; x++,pi++,po++) *po= *pi;
+    }
+    destroy_image(him);
+    destroy_image(hom);
+    destroy_image(im2);
+    destroy_image(om2);
+    fprintf(stderr, " ");
+  }
+  err= image_poisson_step(
+      im, om,
+      k,
+      steps, maxerr
+  );
+  return om;
+}
+
 // vim: sw=2 ts=2 sts=2 expandtab:

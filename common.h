@@ -64,6 +64,8 @@ void convolve_3x3(image *im, real a, real b, real c, real d);
 void deconvolve_3x1(image *im, real a, real b, real c, int border);
 void deconvolve_1x3(image *im, real a, real b, real c, int border);
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr);
+void image_laplace(image *im, real k);
+image *image_poisson(image *im, real k, int steps, float maxerr);
 
 // draw.c
 void draw_grid(image *im, int stepx, int stepy);
@@ -71,9 +73,9 @@ void fill_image(image *im, real v);
 void poke(image *im, int x, int y, int chan, gray v);
 
 // image.c
-real default_ex;
+extern real default_ex;
+extern gray *srgb_to_lin;
 void ensure_init_srgb();
-gray *srgb_to_lin;
 image *make_image(int width, int height, int depth);
 void destroy_image(image *im);
 image *copy_image(image *im);
