@@ -110,13 +110,13 @@ void contrast_image(image *im, real black, real white) {
   gray *end= im->channel[0] + (im->width * im->height);
   gray *p;
   real m, q;
-  int depth= im->depth;
+  int z, depth= im->depth;
   assert(1 <= depth && depth <= 4);
   black *= MAXVAL;
   white *= MAXVAL;
-  if (depth != 1) error("contrast_image: invalid depth");
   if (white == black) {
-    for (p= im->channel[0]; p < end; p++) {
+    for (z=0; z<depth; z++)
+    for (p= im->channel[z]; p < end; p++) {
       if (*p <= black) *p= 0;
       else *p= MAXVAL;
     }
@@ -127,7 +127,8 @@ void contrast_image(image *im, real black, real white) {
   q= MAXVAL -m * white;
 
   if (black < white) {
-    for (p= im->channel[0]; p < end; p++) {
+    for (z=0; z<depth; z++)
+    for (p= im->channel[z]; p < end; p++) {
       if (*p <= black) *p= -MAXVAL;
       else if (*p >= white) *p= MAXVAL;
       else *p= *p * m + q;
@@ -136,7 +137,8 @@ void contrast_image(image *im, real black, real white) {
   }
 
   else { // white < black
-    for (p= im->channel[0]; p < end; p++) {
+    for (z=0; z<depth; z++)
+    for (p= im->channel[z]; p < end; p++) {
       if (*p >= black) *p= -MAXVAL;
       else if (*p <= white) *p= MAXVAL;
       else *p= *p * m + q;
@@ -377,7 +379,7 @@ void image_dither(image *im, int step, int border) {
   if (border) border= 1;
   int h= im->height;
   int w= im->width;
-  int depth= im->depth;
+  int z, depth= im->depth;
   gray *p= im->channel[0];
   gray *end= p + w*h;
   gray ring[w*2];
@@ -385,8 +387,9 @@ void image_dither(image *im, int step, int border) {
   float v;
   int x, y;
   assert((MAXVAL+1) % step == 0);
+  for (z=0; z<depth; z++)
   for (y= border; y < h-border; y++) {
-    p= im->channel[0] + y*w + border;
+    p= im->channel[z] + y*w + border;
     for (x= border; x < w-border; x++,p++) {
       v= *p;
       *p= step * roundf((v+MAXVAL+1)/step) - MAXVAL-1;
