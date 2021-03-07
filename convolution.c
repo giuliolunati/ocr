@@ -397,7 +397,7 @@ float image_poisson_step(
               - *(po-1) - *(po+1) - *pu - *pd
             ) / -4;
             t -= *po;
-            *po += t*1.0;
+            *po += t;
             err1 += t*t;
           } 
         }
@@ -439,13 +439,13 @@ image *image_poisson(image *im, real k, int steps, float maxerr) {
     }
   }
   // inner
-  int l= MAX(w,h);
-  if (l > 64) for (n= 3; n>0; n--) {
+  float recur= log2(MAX(w,h)/8.0);
+  if (recur > 1) for (n= 2; n>0; n--) {
     fprintf(stderr, "%d", n);
     image_poisson_step(
         im, om,
         k,
-        7, 0
+        8, 0
     );
     im2= copy_image(om);
     image_laplace(im2, k);
@@ -459,7 +459,8 @@ image *image_poisson(image *im, real k, int steps, float maxerr) {
     hom= image_poisson(
         him,
         k/4,
-        steps/2, maxerr*n*0.5
+        steps*4,
+        n * maxerr * sqrt((recur-1)/recur)
     );
     om2= image_redouble(hom, w%2, h%2);
     for (z= 0; z < depth; z++) {
