@@ -1,5 +1,6 @@
 #include "common.h"
 
+#define EQ(a, b) (0 == strcmp((a), (b)))
 
 //// SRGB ////
   // 0 <= srgb <= 1  0 <= lin <= 1
@@ -91,46 +92,95 @@ image *copy_image(image *im) {
   return r;
 }
 
+char *read_next_token(FILE *file) {
+  char c;
+  int i;
+  char *buf= malloc(16);
+  unsigned long int p0, p1;
+  while (1) {
+    p0= ftell(file);
+    fscanf(file, " ");
+    if (p0 < (p1= ftell(file))) continue;
+    fscanf(file, "#");
+    if (p0 < (p1= ftell(file))) {
+      c= '#';
+      while (c != '\n') fscanf(file, "%c", &c);
+      continue;
+    }
+    break;
+  }
+  if ( ! fscanf(file, "%15s", buf) ) return "";
+  return buf;
+}
+
 image *read_image(FILE *file, int sigma) {
-  int x, y, prec, depth, height, width, binary;
+  int x, y, prec, magic, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
   ulong i;
   int z;
-  char c;
+  char c, *tok;
   gray *p, v;
 
   assert(file);
-  if (1 > fscanf(file, "P%d ", &depth)) {
-    error("read_image: wrong magic.");
+  if (1 > fscanf(file, "P%d ", &magic))
+  { error("read_image: wrong magic."); }
+  if (magic < 7) { // PNM
+    if (0 >= (width= atoi(read_next_token(file))))
+    { error("read_image: wrong width."); }
+    if (0 >= (height= atoi(read_next_token(file))))
+    { error("read_image: wrong height."); }
+    if (0 >= (prec= atoi(read_next_token(file))))
+    { error("read_image: wrong precision"); }
+    if (1 > fscanf(file, "%c", &c) || 
+      (c != ' ' && c != '\t' && c != '\n')
+    ) {
+      error("read_image: no w/space after precision");
+    }
+    switch (magic) {
+      case 5: depth= 1; break;
+      case 6: depth= 3; break;
+      default: error("read_image: Invalid depth.");
+    }
+  } else if (magic == 7) { // PAM
+    while (1) {
+      tok= read_next_token(file);
+      if (EQ(tok, "DEPTH"))
+      { depth= atoi(read_next_token(file)); }
+      else
+      if (EQ(tok, "ENDHDR")) break;
+      else
+      if (EQ(tok, "HEIGHT"))
+      { height= atoi(read_next_token(file)); }
+      else
+      if (EQ(tok, "MAXVAL"))
+      { prec= atoi(read_next_token(file)); }
+      else
+      if (EQ(tok, "WIDTH"))
+      { width= atoi(read_next_token(file)); }
+      else
+      if (EQ(tok, "TUPLTYPE")) {
+        tok= read_next_token(file);
+        if (EQ(tok, "GRAYSCALE")) depth= 1;
+        else
+        if (EQ(tok, "GRAYSCALE_ALPHA")) depth= 2;
+        else
+        if (EQ(tok, "RGB")) depth= 3;
+        else
+        if (EQ(tok, "RGB_ALPHA")) depth= 4;
+        else error("read_image: unknown TUPLTYPE");
+        c= '#';
+        while (c != '\n') fscanf(file, "%c", &c);
+      }
+    }
   }
-  if (1 > fscanf(file, "%d ", &width)) {
-    error("read_image: wrong width.");
+  //fprintf(stderr, "%d x %d x %d \n", depth, width, height); exit(1);
+  if (prec != 255)
+  { error("read_image: Precision != 255.");
   }
-  if (1 > fscanf(file, "%d ", &height)) {
-    error("read_image: wrong height.");
-  }
-  if (1 > fscanf(file, "%d", &prec)) {
-    error("read_image: wrong precision");
-  }
-  if (1 > fscanf(file, "%c", &c) || 
-    (c != ' ' && c != '\t' && c != '\n')
-  ) {
-    error("read_image: no w/space after precision");
-  }
-  switch (depth) {
-    case 5: depth= 1; break;
-    case 6: depth= 3; break;
-    default: error("read_image: Invalid depth.");
-  }
-  switch (prec) {
-    case 255: break;
-    default: error("read_image: Precision != 255.");
-  }
-  if (width < 1 || height < 1) error("read_image: Invalid dimensions.");
-  im= make_image(width, height, depth);
-  if (!im) error("read_image: Cannot make image.");;
+  assert(width > 0 && height > 0);
   assert(1 <= depth && depth <= 4);
+  im= make_image(width, height, depth);
   buf= malloc(width * depth);
 
   if (sigma) {
@@ -161,12 +211,19 @@ image *read_image(FILE *file, int sigma) {
       }
     }
   }
-  if (depth > 2) {
-  // RGB -> GBR, so channel[0] is GReen/GRay ;-)
+  if (depth == 2) { // AG -> G--A
+    p= im->channel[0];
+    im->channel[0]= im->channel[1];
+    im->channel[1]= im->channel[3];
+    im->channel[3]= p;
+  }
+  else
+  if (depth == 4) { // ARGB -> RGBA
     p= im->channel[0];
     im->channel[0]= im->channel[1];
     im->channel[1]= im->channel[2];
-    im->channel[2]= p;
+    im->channel[2]= im->channel[3];
+    im->channel[3]= p;
   }
   free(buf);
   return im;
@@ -182,18 +239,26 @@ void write_image(image *im, FILE *file, int sigma) {
   int z;
   assert(file);
   assert(1 <= depth && depth <= 4);
-  if (depth > 2) { // GBR -> RGB
-    p= im->channel[2];
-    im->channel[2]= im->channel[1];
-    im->channel[1]= im->channel[0];
-    im->channel[0]= p;
-  }
   if (depth == 1) fprintf(file, "P5\n");
   else if (depth == 3) fprintf(file, "P6\n");
   else error("write_image: depth should be 1 or 3");
   fprintf(file, "%d %d\n255\n", width, height);
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
+  if (depth == 2) { // G--A -> AG
+    p= im->channel[3];
+    im->channel[3]= im->channel[1];
+    im->channel[1]= im->channel[0];
+    im->channel[0]= p;
+  }
+  else
+  if (depth == 4) { // RGBA -> AGRB
+    p= im->channel[3];
+    im->channel[3]= im->channel[2];
+    im->channel[2]= im->channel[1];
+    im->channel[1]= im->channel[0];
+    im->channel[0]= p;
+  }
   // TODO: don't modify im!
   image_dither(im,1,1);
   if (sigma) {
@@ -224,13 +289,21 @@ void write_image(image *im, FILE *file, int sigma) {
       if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
   }
-  free(buf);
-  if (depth > 2) { // RGB -> GBR
+  if (depth == 2) { // AG -> G--A
+    p= im->channel[0];
+    im->channel[0]= im->channel[1];
+    im->channel[1]= im->channel[3];
+    im->channel[3]= p;
+  }
+  else
+  if (depth == 4) { // ARGB -> RGBA
     p= im->channel[0];
     im->channel[0]= im->channel[1];
     im->channel[1]= im->channel[2];
-    im->channel[2]= p;
+    im->channel[2]= im->channel[3];
+    im->channel[3]= p;
   }
+  free(buf);
 }
 
 // vim: set et sw=2:
