@@ -20,6 +20,8 @@ if (! topic) {
 + cropy TOP BOTTOM --------- crop vertically\n\
 - darker FILENAMES... -- darker of all pixel\n\
 - deskew ---------------------- deskew image\n\
+- diff ---------------------- diff im2 - im1\n\
+- dither THR ------ dithering with threshold\n\
 - div --------------------- divide im2 / im1\n\
 - double HARDNESS ----------- double up size\n\
 - ex HEIGHT ----------- set lowercase height\n\
@@ -83,6 +85,11 @@ void push(void *p) {
   if (sp >= STACK_SIZE) error("Stack overflow");
   if (SP) free(SP);
   SP= p;
+  sp++;
+}
+
+void unpop() {
+  if (sp >= STACK_SIZE) error("Stack overflow");
   sp++;
 }
 
@@ -177,6 +184,8 @@ int main(int argc, char **args) {
       contrast_image(im(1), x, y);
     }
     else
+    if (ARG_IS("copy")) push(copy_image(im(1)));
+    else
     if (ARG_IS("cropx")) { // FLOAT FLOAT
       img= im(1);
       if (! *(++arg)) error("cropx: missing LEFT parameter");
@@ -222,6 +231,17 @@ int main(int argc, char **args) {
       t= detect_skew(im(1));
       fprintf(stderr, "skew: %g\n", t);
       skew(im(1), t);
+    }
+    else
+    if (ARG_IS("diff")) {
+      diff_image(im(2), im(1));
+      pop();
+    }
+    else
+    if (ARG_IS("dither")) { // FLOAT
+      if (! *(++arg)) error("double: missing THRESHOLD parameter");
+      x= atof(*arg);
+      image_dither(im(1), x, 1);
     }
     else
     if (ARG_IS("div")) {
@@ -313,6 +333,8 @@ int main(int argc, char **args) {
       if (im(1)->pag > 9999) error("pag: number > 9999");
     }
     else
+    if (ARG_IS("pop")) pop();
+    else
     if (ARG_IS("poisson")) {
       if (! *(++arg)) error("poisson: missing PRECISION");
       t= atof(*arg);
@@ -359,11 +381,15 @@ int main(int argc, char **args) {
       calc_statistics(im(1), 1);
     }
     else
+    if (ARG_IS("swap")) swap();
+    else
     if (ARG_IS("test")) {
       if (! *(++arg)) error("test: missing parameter");
       x=  atof(*arg);
       convolve_3x3(im(1), 4, -1, -1, 0);
     }
+    else
+    if (ARG_IS("unpop")) unpop();
     else
     if (ARG_IS("w")) { // [s:]FILENAME
       if (! *(++arg)) error("w: missing filename");
