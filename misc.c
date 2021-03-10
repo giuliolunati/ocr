@@ -107,16 +107,16 @@ vector *histogram_of_image(image *im, int chan) {
 }
 
 void contrast_image(image *im, real black, real white) {
-  gray *end= im->channel[0] + (im->width * im->height);
   gray *p;
   real m, q;
   int z, depth= im->depth;
+  unsigned long int i, l= im->width * im->height;
   assert(1 <= depth && depth <= 4);
   black *= MAXVAL;
   white *= MAXVAL;
   if (white == black) {
     for (z=0; z<depth; z++)
-    for (p= im->channel[z]; p < end; p++) {
+    for (i=0, p= im->channel[z]; i<l; i++,p++) {
       if (*p <= black) *p= 0;
       else *p= MAXVAL;
     }
@@ -128,7 +128,7 @@ void contrast_image(image *im, real black, real white) {
 
   if (black < white) {
     for (z=0; z<depth; z++)
-    for (p= im->channel[z]; p < end; p++) {
+    for (i=0, p= im->channel[z]; i<l; i++,p++) {
       if (*p <= black) *p= -MAXVAL;
       else if (*p >= white) *p= MAXVAL;
       else *p= *p * m + q;
@@ -138,7 +138,7 @@ void contrast_image(image *im, real black, real white) {
 
   else { // white < black
     for (z=0; z<depth; z++)
-    for (p= im->channel[z]; p < end; p++) {
+    for (i=0, p= im->channel[z]; i<l; i++,p++) {
       if (*p >= black) *p= -MAXVAL;
       else if (*p <= white) *p= MAXVAL;
       else *p= *p * m + q;
