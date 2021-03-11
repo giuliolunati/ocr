@@ -338,8 +338,8 @@ int main(int argc, char **args) {
     if (ARG_IS("poisson")) {
       if (! *(++arg)) error("poisson: missing PRECISION");
       t= atof(*arg);
-      push(image_poisson(im(1), -0.25, 0, t));
-      swap(); pop();
+      image_poisson(im(1), im(2), -0.25, 0, t);
+      pop();
     }
     else
     if (ARG_IS("quit")) exit(0);

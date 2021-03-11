@@ -30,11 +30,14 @@ void draw_grid(image *im, int stepx, int stepy) {
 
 void fill_image(image *im, real v) {
   gray s= MAXVAL * v;
-  int i;
+  int z;
+  int depth= im->depth;
+  depth += (depth % 2) - 1; // 4->3 2->1
   gray *p, *end;
-  for (i= 0; i < im->depth; i++) {
+
+  for (z= 0; z < depth; z++) {
     for (
-      p= im->channel[i], end= p + (im->width * im->height);
+      p= im->channel[z], end= p + (im->width * im->height);
       p < end;
       p ++
     ) *p= s;

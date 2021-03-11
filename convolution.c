@@ -327,6 +327,8 @@ void image_laplace(image *im, real k) {
   // b a b  symmetric 3x3 kernel
   // d c d
   int depth= im->depth;
+  int alpha= 0;
+  if (! depth % 2) {alpha= 1; depth--;}
   int w= im->width, h= im->height;
   int z, x, y;
   int len= w * sizeof(gray);
@@ -355,50 +357,56 @@ void image_laplace(image *im, real k) {
 }
 
 float image_poisson_step(
-    image *im, image *om,
+    // laplacian(guess) =~ target
+    image *target, image *guess,
     real k,
     int steps, float maxerr
   ) {
   int z, n, x, y, dx;
-  int depth= im->depth, w= im->width, h= im->height;
-  gray *po, *pi, *pu, *pd;
+  int depth= target->depth, w= target->width, h= target->height;
+  int alpha= 0;
+  if (depth == 2 || depth == 4)
+  { depth --; alpha= 1; }
+  gray *pg, *pt, *pa= 0;
   double t, err1, err= 0;
+  unsigned long int count= 0;
   for (z= 0; z < depth; z ++) {
     for (n=0; n!= steps-1; n++) {
       fprintf(stderr, "%c", n%10+48);
       if (n%16 < 2) {
-        if (n%16 == 0) err1= 0;
+        if (n%16 == 0) { err1= count= 0; } 
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          po= om->channel[z] + y*w + 1 + dx;
-          pi= im->channel[z] + y*w + 1 + dx;
-          pu= po - w; pd= po + w;
-          for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
-            t= ( *pi/k
-              - *(po-1) - *(po+1) - *pu - *pd
-            ) / -4 - *po;
+          pg= guess->channel[z] + y*w + 1 + dx;
+          pt= target->channel[z] + y*w + 1 + dx;
+          if (alpha) pa= target->channel[3] + y*w + 1 + dx;
+          for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
+            if (alpha && *pa <=0) continue;
+            t= ( *pt/k
+              - *(pg-1) - *(pg+1) - *(pg-w) - *(pg+w)
+            ) / -4 - *pg;
             err1 += t*t;
+            count ++;
           }
         }
         fprintf(stderr, "");
         if (n%16 == 1) {
-          err1 /= (w-2) * (h-2);
+          if (count == 0) return -1;
+          err1 /= count;
           err1= sqrt(err1);
           if (err1 <= maxerr) break;
         }
       } else {
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          po= om->channel[z] + y*w + 1 + dx;
-          pi= im->channel[z] + y*w + 1 + dx;
-          pu= po - w; pd= po + w;
-          for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
-            t= ( *pi/k
-              - *(po-1) - *(po+1) - *pu - *pd
-            ) / -4;
-            t -= *po;
-            *po += t;
-            err1 += t*t;
+          pg= guess->channel[z] + y*w + 1 + dx;
+          pt= target->channel[z] + y*w + 1 + dx;
+          if (alpha) pa= target->channel[3] + y*w + 1 + dx;
+          for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
+            if (alpha && *pa <=0) continue;
+            *pg= (
+              *(pg-1) + *(pg+1) + *(pg-w) + *(pg+w) - *pt/k
+            ) / 4;
           } 
         }
         fprintf(stderr, "");
@@ -409,89 +417,65 @@ float image_poisson_step(
   return err;
 }
 
-image *image_poisson(image *im, real k, int steps, float maxerr) {
-  image *him, *hom, *om, *im2, *om2;
+void image_poisson(image *target, image *guess, real k, int steps, float maxerr) {
+  image *ta1, *gu1, *ta2, *gu2;
   int z, n, x, y;
-  int depth= im->depth, w= im->width, h= im->height;
-  om= make_image(w, h, depth);
-  gray *pi, *po;
+  assert(guess);
+  int depth= guess->depth;
+  int alpha= 0;
+  if (! depth % 2) {alpha= 1; depth--;}
+  int w= target->width, h= target->height;
+  if (guess->width != w || guess->height != h)
+  { error("image_poisson: size mismatch."); }
+  gray *pt, *pg;
   real err, mean;
-  // border
-  for (z= 0; z < depth; z++) {
-    mean= 0;
-    pi= im->channel[z];
-    po= om->channel[z];
-    for (x= 0; x < w; x++,pi++,po++)
-    { mean += *po= *pi; }
-    for (y= 1; y < h-1; y++) {
-      mean += *po= *pi; pi += w-1, po += w-1;
-      mean += *po= *pi; pi++, po++;
-    }
-    for (x= 0; x < w; x++,pi++,po++)
-    { mean += *po= *pi; }
-    mean /= 2*(w+h) - 4;
-    for (y= 1; y < h-1; y++) {
-      pi= im->channel[z] + y*w + 1;
-      po= om->channel[z] + y*w + 1;
-      for (x= 1; x < w-1; x++,pi++,po++) {
-        *po= mean;
-      }
-    }
-  }
   // inner
-  float recur= log2(MAX(w,h)/8.0);
+  float recur= log2(MAX(w,h)/800.0);
   if (recur > 1) for (n= 2; n>0; n--) {
     fprintf(stderr, "%d", n);
     image_poisson_step(
-        im, om,
+        target, guess,
         k,
         8, 0
     );
-    im2= copy_image(om);
-    image_laplace(im2, k);
+    ta1= copy_image(guess);
+    image_laplace(ta1, k);
     for (z= 0; z < depth; z++) {
-      pi= im->channel[z];
-      po= im2->channel[z];
+      pt= target->channel[z];
+      pg= ta1->channel[z];
       for (y= 0; y < h; y++)
-      for (x= 0; x < w; x++,pi++,po++) *po= *pi - *po;
+      for (x= 0; x < w; x++,pt++,pg++) *pg= *pt - *pg;
     }
-    him= image_half(im2);
-    hom= image_poisson(
-        him,
+    ta2= image_half(ta1);
+    gu2= image_half(guess);
+    fill_image(gu2, 0);
+    image_poisson(
+        ta2,
+        gu2,
         k/4,
         steps*4,
         n * maxerr * sqrt((recur-1)/recur)
     );
-    om2= image_redouble(hom, w%2, h%2);
+    gu1= image_redouble(gu2, w%2, h%2);
     for (z= 0; z < depth; z++) {
-      // om += om2
+      // guess += gu1
       for (y= 1; y < h-1; y++) {
-        pi= om2->channel[z] + y*w + 1;
-        po= om->channel[z] + y*w + 1;
-        for (x= 1; x < w-1; x++,pi++,po++) *po += *pi;
+        pt= gu1->channel[z] + y*w + 1;
+        pg= guess->channel[z] + y*w + 1;
+        for (x= 1; x < w-1; x++,pt++,pg++) *pg += *pt;
       }
-      //fix border
-      pi= im->channel[z];
-      po= om->channel[z];
-      for (x= 0; x < w; x++,pi++,po++) *po= *pi;
-      for (y= 1; y < h-1; y++) {
-        *po= *pi; pi += w-1, po += w-1;
-        *po= *pi; pi++, po++;
-      }
-      for (x= 0; x < w; x++,pi++,po++) *po= *pi;
     }
-    destroy_image(him);
-    destroy_image(hom);
-    destroy_image(im2);
-    destroy_image(om2);
+    destroy_image(ta2);
+    destroy_image(gu2);
+    destroy_image(ta1);
+    destroy_image(gu1);
     fprintf(stderr, " ");
   }
   err= image_poisson_step(
-      im, om,
+      target, guess,
       k,
       steps, maxerr
   );
-  return om;
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:

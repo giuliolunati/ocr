@@ -14,4 +14,4 @@ test: test.c libgrafix.a common.h
 
 .PHONY: clean
 clean:
-	rm -f grafix *~ *.o
+	rm -f grafix *~ *.o *.a

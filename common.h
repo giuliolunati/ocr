@@ -65,7 +65,7 @@ void deconvolve_3x1(image *im, real a, real b, real c, int border);
 void deconvolve_1x3(image *im, real a, real b, real c, int border);
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr);
 void image_laplace(image *im, real k);
-image *image_poisson(image *im, real k, int steps, float maxerr);
+void image_poisson(image *target, image *guess, real k, int steps, float maxerr);
 
 // draw.c
 void draw_grid(image *im, int stepx, int stepy);

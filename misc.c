@@ -110,6 +110,7 @@ void contrast_image(image *im, real black, real white) {
   gray *p;
   real m, q;
   int z, depth= im->depth;
+  depth -= 1 - (depth % 2);
   unsigned long int i, l= im->width * im->height;
   assert(1 <= depth && depth <= 4);
   black *= MAXVAL;
