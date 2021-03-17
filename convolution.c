@@ -11,10 +11,11 @@ void convolve_3x3(image *im, real a, real b, real c, real d) {
 
   gray *buf= (gray *) malloc(3 * len);
   if (! buf) error("convolve_3x3: out of memory.");
-  for (z= 0; z < depth; z ++) {
-    memcpy(buf, im->channel[z], 2 * len);
+  for (z= 1; z < 4; z ++) {
+    if (! im->chan[z]) continue;
+    memcpy(buf, im->chan[z], 2 * len);
     gray *i0, *i1, *i2, *o;
-    o= im->channel[z] + w;
+    o= im->chan[z] + w;
     for (y=1; y < h-1; y++) {
       i0= buf; i1= i0 + w; i2 = i1 + w;
       memcpy(i2, o + w, len);
@@ -37,6 +38,7 @@ void deconvolve_3x1(image *im, real a, real b, real c, int border) {
   // a b c
   if (border) border= 1;
   int i, y, n= im->width, h= im->height;
+  int z, depth= im->depth;
   real *th;
   real t= a + b + c;
   real *aa= malloc(n * sizeof(*aa));
@@ -51,25 +53,28 @@ void deconvolve_3x1(image *im, real a, real b, real c, int border) {
   real p,q,r, *v= malloc(n * sizeof(*v));
   gray *s;
   th= solve_tridiagonal(aa, bb, cc, n);
-  for (y=1-border ; y < h-1+border; y++) {
-    s= im->channel[0] + n*y;
-    for (i= 0; i < n; i++) {
-      v[i]= s[i];
-    }
-    for (i= 0; i < n-1; i++) {
-      p = sin(th[i]); q = cos(th[i]);
-      r= p * v[i] + q * v[i+1];
-      v[i] -= 2*r*p;
-      v[i+1] -= 2*r*q;
-    }
-    for (i= n-1; i >= 0; i--) {
-      if (i+2 < n) v[i] -= aa[i] * v[i+2];
-      if (i+1 < n) v[i] -= cc[i] * v[i+1];
-      assert(bb[i] != 0);
-      v[i] /= bb[i];
-    }
-    for (i= 0; i < n; i++) {
-      s[i]= v[i];
+  for (z= 1; z < 4; z++) {
+    if (! im->chan[z]) continue;
+    for (y=1-border ; y < h-1+border; y++) {
+      s= im->chan[z] + n*y;
+      for (i= 0; i < n; i++) {
+        v[i]= s[i];
+      }
+      for (i= 0; i < n-1; i++) {
+        p = sin(th[i]); q = cos(th[i]);
+        r= p * v[i] + q * v[i+1];
+        v[i] -= 2*r*p;
+        v[i+1] -= 2*r*q;
+      }
+      for (i= n-1; i >= 0; i--) {
+        if (i+2 < n) v[i] -= aa[i] * v[i+2];
+        if (i+1 < n) v[i] -= cc[i] * v[i+1];
+        assert(bb[i] != 0);
+        v[i] /= bb[i];
+      }
+      for (i= 0; i < n; i++) {
+        s[i]= v[i];
+      }
     }
   }
   free(aa); free(bb); free(cc);
@@ -80,6 +85,7 @@ void deconvolve_1x3(image *im, real a, real b, real c, int border) {
   // a b c
   if (border) border= 1;
   int i, x, w= im->width, n= im->height;
+  int z, depth= im->depth;
   gray *s;
   real *th;
   real p,q,r, *v= malloc(n * sizeof(*v));
@@ -94,22 +100,25 @@ void deconvolve_1x3(image *im, real a, real b, real c, int border) {
   bb[0]= 1; cc[0]=0;
   bb[n-1]= 1; aa[n-1]=0;
   th= solve_tridiagonal(aa, bb, cc, n);
-  for (x= 1-border ; x < w-1+border; x++) {
-    s= im->channel[0] + x;
-    for (i= 0; i < n; i++) v[i]= s[i*w];
-    for (i= 0; i < n-1; i++) {
-      p = sin(th[i]); q = cos(th[i]);
-      r= p * v[i] + q * v[i+1];
-      v[i] -= 2*r*p;
-      v[i+1] -= 2*r*q;
+  for (z= 1; z < 4; z++) {
+    if (! im->chan[z]) continue;
+    for (x= 1-border ; x < w-1+border; x++) {
+      s= im->chan[z] + x;
+      for (i= 0; i < n; i++) v[i]= s[i*w];
+      for (i= 0; i < n-1; i++) {
+        p = sin(th[i]); q = cos(th[i]);
+        r= p * v[i] + q * v[i+1];
+        v[i] -= 2*r*p;
+        v[i+1] -= 2*r*q;
+      }
+      for (i= n-1; i >= 0; i--) {
+        if (i+2 < n) v[i] -= aa[i] * v[i+2];
+        if (i+1 < n) v[i] -= cc[i] * v[i+1];
+        assert(bb[i] != 0);
+        v[i] /= bb[i];
+      }
+      for (i= 0; i < n; i++) s[i*w]= v[i];
     }
-    for (i= n-1; i >= 0; i--) {
-      if (i+2 < n) v[i] -= aa[i] * v[i+2];
-      if (i+1 < n) v[i] -= cc[i] * v[i+1];
-      assert(bb[i] != 0);
-      v[i] /= bb[i];
-    }
-    for (i= 0; i < n; i++) s[i*w]= v[i];
   }
   free(aa); free(bb); free(cc);
   free(th); free(v);
@@ -132,9 +141,10 @@ float deconvolve_3x3_step_old(
   real p= sqrt(fabs(a)), q= a/p;
   real p1= b/p, q1= c/q;
   real r= p1*q1 - d;
+  assert(im->depth == 1);
   for (i=steps; i>0; i--) {
-    pi= im->channel[0];
-    po= om->channel[0];
+    pi= im->chan[0];
+    po= om->chan[0];
     for (x= 0; x < w; x++,pi++,po++)
     { *po= *pi; }
     for (y= 1; y < h-1; y++) {
@@ -146,8 +156,8 @@ float deconvolve_3x3_step_old(
     convolve_3x3(om, 0,0,0,r);
     // om += im
     for (y= 1; y < h-1; y++) {
-      pi= im->channel[0] + y*w + 1;
-      po= om->channel[0] + y*w + 1;
+      pi= im->chan[0] + y*w + 1;
+      po= om->chan[0] + y*w + 1;
       for (x= 1; x < w-1; x++,pi++,po++)
       { *po += *pi; }
     }
@@ -157,8 +167,8 @@ float deconvolve_3x3_step_old(
   assert(! im2);
   im2= copy_image(om);
   convolve_3x3(im2, a,b,c,d);
-  pi= im2->channel[0];
-  po= im->channel[0];
+  pi= im2->chan[0];
+  po= im->chan[0];
   err= 0;
   for (y= 0; y < h; y++)
   for (x= 0; x < w; x++,pi++,po++) {
@@ -185,15 +195,16 @@ float deconvolve_3x3_step(
   float k= a*a / (a*a + 2*b*b + 2*c*c + 4*d*d);
   gray *po, *pi, *pu, *pd;
   double t, err1, err= 0;
-  for (z= 0; z < depth; z ++) {
+  for (z= 1; z < 4; z ++) {
+    if (! im->chan[z]) continue;
     for (n=0; n!= steps-1; n++) {
       fprintf(stderr, "%c", n%10+48);
       if (n%16 < 2) {
         if (n%16 == 0) err1= 0;
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          po= om->channel[z] + y*w + 1 + dx;
-          pi= im->channel[z] + y*w + 1 + dx;
+          po= om->chan[z] + y*w + 1 + dx;
+          pi= im->chan[z] + y*w + 1 + dx;
           pu= po - w; pd= po + w;
           for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
             t= ( *pi
@@ -213,8 +224,8 @@ float deconvolve_3x3_step(
       } else {
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          po= om->channel[z] + y*w + 1 + dx;
-          pi= im->channel[z] + y*w + 1 + dx;
+          po= om->chan[z] + y*w + 1 + dx;
+          pi= im->chan[z] + y*w + 1 + dx;
           pu= po - w; pd= po + w;
           for (x= 1+dx ; x < w-1; x+=2,pi+=2,po+=2,pu+=2,pd+=2) {
             t= ( *pi
@@ -237,16 +248,19 @@ float deconvolve_3x3_step(
 
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr) {
   image *him, *hom, *om, *im2, *om2;
-  int z, n, x, y;
-  int depth= im->depth, w= im->width, h= im->height;
+  int n, x, y, z;
+  int depth= im->depth; 
+  int w= im->width, h= im->height;
+
   om= make_image(w, h, depth);
   gray *pi, *po;
   real err, mean;
   // border
-  for (z= 0; z < depth; z++) {
+  for (z= 1; z < 4; z++) {
+    if (! im->chan[z]) continue;
     mean= 0;
-    pi= im->channel[z];
-    po= om->channel[z];
+    pi= im->chan[z];
+    po= om->chan[z];
     for (x= 0; x < w; x++,pi++,po++)
     { mean += *po= *pi; }
     for (y= 1; y < h-1; y++) {
@@ -257,8 +271,8 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
     { mean += *po= *pi; }
     mean /= 2*(w+h) - 4;
     for (y= 1; y < h-1; y++) {
-      pi= im->channel[z] + y*w + 1;
-      po= om->channel[z] + y*w + 1;
+      pi= im->chan[z] + y*w + 1;
+      po= om->chan[z] + y*w + 1;
       for (x= 1; x < w-1; x++,pi++,po++) {
         *po= mean;
       }
@@ -275,9 +289,10 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
     );
     im2= copy_image(om);
     convolve_3x3(im2, a,b,c,d);
-    for (z= 0; z < depth; z++) {
-      pi= im->channel[z];
-      po= im2->channel[z];
+    for (z= 1; z < 4; z++) {
+      if (! im->chan[z]) continue;
+      pi= im->chan[z];
+      po= im2->chan[z];
       for (y= 0; y < h; y++)
       for (x= 0; x < w; x++,pi++,po++) *po= *pi - *po;
     }
@@ -291,16 +306,17 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
         steps/2, maxerr*n*0.5
     );
     om2= image_redouble(hom, w%2, h%2);
-    for (z= 0; z < depth; z++) {
+    for (z= 1; z < 4; z++) {
+      if (! im->chan[z]) continue;
       // om += om2
       for (y= 1; y < h-1; y++) {
-        pi= om2->channel[z] + y*w + 1;
-        po= om->channel[z] + y*w + 1;
+        pi= om2->chan[z] + y*w + 1;
+        po= om->chan[z] + y*w + 1;
         for (x= 1; x < w-1; x++,pi++,po++) *po += *pi;
       }
       //fix border
-      pi= im->channel[z];
-      po= om->channel[z];
+      pi= im->chan[z];
+      po= om->chan[z];
       for (x= 0; x < w; x++,pi++,po++) *po= *pi;
       for (y= 1; y < h-1; y++) {
         *po= *pi; pi += w-1, po += w-1;
@@ -327,17 +343,16 @@ void image_laplace(image *im, real k) {
   // b a b  symmetric 3x3 kernel
   // d c d
   int depth= im->depth;
-  int alpha= 0;
-  if (! depth % 2) {alpha= 1; depth--;}
   int w= im->width, h= im->height;
-  int z, x, y;
+  int x, y, z;
   int len= w * sizeof(gray);
   gray *buf= (gray *) malloc(3 * len);
   if (! buf) error("convolve_3x3: out of memory.");
-  for (z= 0; z < depth; z ++) {
-    memcpy(buf, im->channel[z], 2 * len);
+  for (z= 1; z < 4; z++) {
+    if (! im->chan[z]) continue;
+    memcpy(buf, im->chan[z], 2 * len);
     gray *i0, *i1, *i2, *o;
-    o= im->channel[z] + w;
+    o= im->chan[z] + w;
     for (y=1; y < h-1; y++) {
       i0= buf; i1= i0 + w; i2 = i1 + w;
       memcpy(i2, o + w, len);
@@ -363,25 +378,27 @@ float image_poisson_step(
     int steps, float maxerr
   ) {
   int z, n, x, y, dx;
-  int depth= target->depth, w= target->width, h= target->height;
-  int alpha= 0;
-  if (depth == 2 || depth == 4)
-  { depth --; alpha= 1; }
+  int depth= target->depth, opaque= depth % 2;
+  int w= target->width, h= target->height;
+  assert(guess->depth == depth);
+  assert(guess->width == w);
+  assert(guess->height == h);
   gray *pg, *pt, *pa= 0;
   double t, err1, err= 0;
   unsigned long int count= 0;
-  for (z= 0; z < depth; z ++) {
+  for (z= 1; z < 4; z++) {
+    if (! target->chan[z]) continue;
     for (n=0; n!= steps-1; n++) {
       fprintf(stderr, "%c", n%10+48);
       if (n%16 < 2) {
         if (n%16 == 0) { err1= count= 0; } 
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          pg= guess->channel[z] + y*w + 1 + dx;
-          pt= target->channel[z] + y*w + 1 + dx;
-          if (alpha) pa= target->channel[3] + y*w + 1 + dx;
+          pg= guess->chan[z] + y*w + 1 + dx;
+          pt= target->chan[z] + y*w + 1 + dx;
+          if (! opaque) pa= target->chan[3] + y*w + 1 + dx;
           for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
-            if (alpha && *pa <=0) continue;
+            if (! opaque && *pa <=0) continue;
             t= ( *pt/k
               - *(pg-1) - *(pg+1) - *(pg-w) - *(pg+w)
             ) / -4 - *pg;
@@ -399,11 +416,11 @@ float image_poisson_step(
       } else {
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          pg= guess->channel[z] + y*w + 1 + dx;
-          pt= target->channel[z] + y*w + 1 + dx;
-          if (alpha) pa= target->channel[3] + y*w + 1 + dx;
+          pg= guess->chan[z] + y*w + 1 + dx;
+          pt= target->chan[z] + y*w + 1 + dx;
+          if (! opaque) pa= target->chan[3] + y*w + 1 + dx;
           for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
-            if (alpha && *pa <=0) continue;
+            if (! opaque && *pa <=0) continue;
             *pg= (
               *(pg-1) + *(pg+1) + *(pg-w) + *(pg+w) - *pt/k
             ) / 4;
@@ -422,8 +439,6 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
   int z, n, x, y;
   assert(guess);
   int depth= guess->depth;
-  int alpha= 0;
-  if (! depth % 2) {alpha= 1; depth--;}
   int w= target->width, h= target->height;
   if (guess->width != w || guess->height != h)
   { error("image_poisson: size mismatch."); }
@@ -440,9 +455,10 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
     );
     ta1= copy_image(guess);
     image_laplace(ta1, k);
-    for (z= 0; z < depth; z++) {
-      pt= target->channel[z];
-      pg= ta1->channel[z];
+    for (z= 1; z < 4; z++) {
+      if (! target->chan[z]) continue;
+      pt= target->chan[z];
+      pg= ta1->chan[z];
       for (y= 0; y < h; y++)
       for (x= 0; x < w; x++,pt++,pg++) *pg= *pt - *pg;
     }
@@ -457,11 +473,12 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
         n * maxerr * sqrt((recur-1)/recur)
     );
     gu1= image_redouble(gu2, w%2, h%2);
-    for (z= 0; z < depth; z++) {
+    for (z= 1; z < 4; z++) {
+      if (! target->chan[z]) continue;
       // guess += gu1
       for (y= 1; y < h-1; y++) {
-        pt= gu1->channel[z] + y*w + 1;
-        pg= guess->channel[z] + y*w + 1;
+        pt= gu1->chan[z] + y*w + 1;
+        pg= guess->chan[z] + y*w + 1;
         for (x= 1; x < w-1; x++,pt++,pg++) *pg += *pt;
       }
     }

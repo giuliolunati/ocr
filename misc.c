@@ -23,16 +23,18 @@ image *image_background(image *im) {
   d= 0.333 / d;
   d= exp(-d);
   int x, y, z, h= im->height, w= im->width;
-  image *om= make_image(w, h, im->depth);
+  int depth= im->depth;
+  image *om= make_image(w, h, depth);
   om->ex= im->ex;
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
   v1= malloc(w * sizeof(*v1));
   gray *pi;
   gray *po;
-  for (z= 0; z < im->depth; z++) {
-    pi= im->channel[z];
-    po= om->channel[z];
+  for (z= 1; z < 4; z++) {
+    pi= im->chan[z];
+    if (! pi) continue;
+    po= om->chan[z];
     for (y= 0; y < h; y++) {
       for (x= 0; x < w; x++) v1[x]= *(pi++);
       for (x= 1; x < w; x++) {
@@ -73,13 +75,13 @@ void divide_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
   int depth= a->depth;
+  int opaque= depth % 2;
+  assert(opaque);
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("divide_image: size mismatch.");
-  if (b->depth != depth) error("divide_image: depth mismatch.");
-  for (z= 0; z < depth; z++) {
-    pa= a->channel[z]; pb= b->channel[z];
-    assert(pa && pb);
+  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
+  for (z= 1; z < depth; z++) {
     for (i= 0; i < w * h; i++) {
       *pa= (real)*pa / *pb * MAXVAL;
       pa++; pb++;
@@ -90,7 +92,7 @@ void divide_image(image *a, image *b) {
 vector *histogram_of_image(image *im, int chan) {
   vector *hi= make_vector(256);
   hi->len= hi->size;
-  gray *p= im->channel[chan];
+  gray *p= im->chan[chan];
   real *d= hi->data;
   int x, y, h= im->height, w= im->width;
   for (y= 0; y < h; y++) {
@@ -110,16 +112,16 @@ void contrast_image(image *im, real black, real white) {
   gray *p;
   real m, q;
   int z, depth= im->depth;
-  depth -= 1 - (depth % 2);
-  unsigned long int i, l= im->width * im->height;
   assert(1 <= depth && depth <= 4);
+  unsigned long int i, l= im->width * im->height;
   black *= MAXVAL;
   white *= MAXVAL;
   if (white == black) {
-    for (z=0; z<depth; z++)
-    for (i=0, p= im->channel[z]; i<l; i++,p++) {
-      if (*p <= black) *p= 0;
-      else *p= MAXVAL;
+    for (z=1; z < depth; z++) {
+      for (i=0; i<l; i++,p++) {
+        if (*p <= black) *p= 0;
+        else *p= MAXVAL;
+      }
     }
     return;
   }
@@ -128,28 +130,30 @@ void contrast_image(image *im, real black, real white) {
   q= MAXVAL -m * white;
 
   if (black < white) {
-    for (z=0; z<depth; z++)
-    for (i=0, p= im->channel[z]; i<l; i++,p++) {
-      if (*p <= black) *p= -MAXVAL;
-      else if (*p >= white) *p= MAXVAL;
-      else *p= *p * m + q;
+    for (z=1; z < depth; z++) {
+      for (i=0; i<l; i++,p++) {
+        if (*p <= black) *p= -MAXVAL;
+        else if (*p >= white) *p= MAXVAL;
+        else *p= *p * m + q;
+      }
     }
     return;
   }
 
   else { // white < black
-    for (z=0; z<depth; z++)
-    for (i=0, p= im->channel[z]; i<l; i++,p++) {
-      if (*p >= black) *p= -MAXVAL;
-      else if (*p <= white) *p= MAXVAL;
-      else *p= *p * m + q;
+    for (z=1; z < depth; z++) {
+      for (i=0; i<l; i++,p++) {
+        if (*p >= black) *p= -MAXVAL;
+        else if (*p <= white) *p= MAXVAL;
+        else *p= *p * m + q;
+      }
     }
     return;
   }
 }
 
 void normalize_image(image *im, real strength) {
-  vector *d, *v= histogram_of_image(im, 0);
+  vector *d, *v= histogram_of_image(im, 1);
   real *p= v->data;
   int i, b, w, depth= im->depth;
 
@@ -219,9 +223,9 @@ void mean_y(image *im, uint d) {
     r= v + w * i;
     i= (i+d) % (d+1);
     r1= v + w * i;
-    p= im->channel[0] + y * w;
+    p= im->chan[1] + y * w;
     i= y - d/2;
-    if (y >= d) q= im->channel[0] + i * w;
+    if (y >= d) q= im->chan[1] + i * w;
     else q= 0;
     end= p + w;
     for (; p < end; p++, r1++, r++, rd++) {
@@ -236,15 +240,16 @@ void darker_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
   int depth= a->depth;
-  if (depth != 1) error("invalid depth");
-  int i;
+  int i,z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("darker_image: size mismatch.");
-  if (b->depth != depth) error("darker_image: depth mismatch.");
-  pa= a->channel[0]; pb= b->channel[0];
-  for (i= 0; i < w * h; i++) {
-    if (*pa > *pb) { *pa= *pb; };
-    pa++; pb++;
+  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
+  for (z=1; z < depth; z++) {
+    pa= a->chan[z]; pb= b->chan[z];
+    for (i= 0; i < w * h; i++) {
+      if (*pa > *pb) { *pa= *pb; };
+      pa++; pb++;
+    }
   }
 }
 
@@ -266,7 +271,7 @@ void calc_statistics(image *im, int verbose) {
   real area, border, thickness, black, graythr, white;
   int i, x, y, t;
   int h= im->height, w= im->width;
-  gray *pi= im->channel[0];
+  gray *pi= im->chan[1];
   gray *px= pi + 1;
   gray *py= pi + w;
   short a, b, c;
@@ -331,9 +336,9 @@ void diff_image(image *a, image *b) {
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("diff_image: size mismatch.");
-  if (b->depth != depth) error("diff_image: depth mismatch.");
-  for (z= 0; z < depth; z++) {
-    pa= a->channel[z]; pb= b->channel[z];
+  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
+  for (z= 1; z < depth; z++) {
+    pa= a->chan[z]; pb= b->chan[z];
     assert(pa && pb);
     for (i= 0; i < w * h; i++) {
       *pa= *pa - *pb;
@@ -349,9 +354,9 @@ void patch_image(image *a, image *b) {
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("patch_image: size mismatch.");
-  if (b->depth != depth) error("patch_image: depth mismatch.");
-  for (z= 0; z < depth; z++) {
-    pa= a->channel[z]; pb= b->channel[z];
+  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
+  for (z= 1; z < depth; z++) {
+    pa= a->chan[z]; pb= b->chan[z];
     assert(pa && pb);
     for (i= 0; i < w * h; i++) {
       *pa= *pa + *pb;
@@ -364,14 +369,18 @@ void image_quantize(image *im, float step) {
   int h= im->height;
   int w= im->width;
   int depth= im->depth;
-  gray *p= im->channel[0];
-  gray *end= p + w*h;
+  gray *p, *end= p;
   float v;
-  int i;
-  step *= KP;
-  for (; p < end; p++) {
-    v= *p;
-    *p = step * roundf(v/step);
+  int i, z;
+  for (z= 0; z < 4; z++) {
+    p= im->chan[0];
+    if (! p) continue;
+    end= p + w*h;
+    step *= KP;
+    for (; p < end; p++) {
+      v= *p;
+      *p = step * roundf(v/step);
+    }
   }
 }
 
@@ -381,27 +390,27 @@ void image_dither(image *im, int step, int border) {
   int h= im->height;
   int w= im->width;
   int z, depth= im->depth;
-  gray *p= im->channel[0];
-  gray *end= p + w*h;
-  gray ring[w*2];
   int i= 0;
   float v;
   int x, y;
+  gray *p;
   assert((MAXVAL+1) % step == 0);
-  for (z=0; z<depth; z++)
-  for (y= border; y < h-border; y++) {
-    p= im->channel[z] + y*w + border;
-    for (x= border; x < w-border; x++,p++) {
-      v= *p;
-      *p= step * roundf((v+MAXVAL+1)/step) - MAXVAL-1;
-      v= (v-*p)/16;
-      if (x+1 < w-border) {
-        *(p+1) += 7*v;
-        if (y+1 < h-border) *(p+w+1) += v;
-      }
-      if (y+1 < h-border) {
-        if (x > border) *(p+w-1) += 3*v;
-        *(p+w) += 5*v;
+  for (z=0; z < 4; z++) {
+    if (! im->chan[z]) continue;
+    for (y= border; y < h-border; y++) {
+      p= im->chan[z] + y*w + border;
+      for (x= border; x < w-border; x++,p++) {
+        v= *p;
+        *p= step * roundf((v+MAXVAL+1)/step) - MAXVAL-1;
+        v= (v-*p)/16;
+        if (x+1 < w-border) {
+          *(p+1) += 7*v;
+          if (y+1 < h-border) *(p+w+1) += v;
+        }
+        if (y+1 < h-border) {
+          if (x > border) *(p+w-1) += 3*v;
+          *(p+w) += 5*v;
+        }
       }
     }
   }

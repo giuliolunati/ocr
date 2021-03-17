@@ -49,14 +49,16 @@ image *make_image(int width, int height, int depth) {
   assert(1 <= depth && depth <= 4);
   if (height < 1 || width < 1) error("make_image: size <= 0");
   int i;
+  int opaque= depth % 2;
   gray *p;
   image *im= malloc(sizeof(image));
   if (! im) error("make_image: can't alloc memory");
-  for (i= 0; i < depth; i ++) {
+  for (i= opaque; i < depth+opaque; i ++) {
     p= calloc (width * height, sizeof(*p));
     if (! p) error("make_image: can't alloc memory");
-    im->channel[i]= p;
-  } for (; i < 4; i ++) im->channel[i]= NULL;
+    im->chan[i]= p;
+  } for (; i < 4; i ++) im->chan[i]= NULL;
+  if (opaque) im->chan[0]= NULL;
   im->magic= 'I';
   im->width= width;
   im->height= height;
@@ -72,24 +74,24 @@ void destroy_image(image *im) {
   if (! im) return;
   int i;
   for (i= 0; i < 4; i ++) {
-    if (im->channel[i]) {
-      free(im->channel[i]);
-    }
+    if (im->chan[i]) free(im->chan[i]);
   }
   free(im);
 }
 
 image *copy_image(image *im) {
-  image *r= malloc(sizeof(*r));
-  memcpy(r, im, sizeof(*r));
-  gray *p;
-  int i, d= im->depth;
-  uint len= im->width * im->height * sizeof(*p);
-  for (i=0; i<d; i++) {
-    r->channel[i]= p= malloc(len);
-    memcpy(p, im->channel[i], len);
+  image *om= malloc(sizeof(*om));
+  uint len= im->width * im->height * sizeof(gray);
+  memcpy(om, im, sizeof(*om));
+  gray *pi, *po;
+  int i;
+  for (i=0; i<4; i++) {
+    pi= im->chan[i];
+    if (! pi) continue;
+    om->chan[i]= po = malloc(len);
+    memcpy(po, pi, len);
   }
-  return r;
+  return om;
 }
 
 char *read_next_token(FILE *file) {
@@ -181,6 +183,7 @@ image *read_image(FILE *file, int sigma) {
   assert(width > 0 && height > 0);
   assert(1 <= depth && depth <= 4);
   im= make_image(width, height, depth);
+  int opaque= depth % 2;
   buf= malloc(width * depth);
 
   if (sigma) {
@@ -191,9 +194,9 @@ image *read_image(FILE *file, int sigma) {
       }
       ps= buf;
       for (x= 0; x < width; x++, i++) {
-        for (z= 0; z < depth; z++, ps++) {
+        for (z= opaque; z < depth+opaque; z++, ps++) {
           v= *ps - 128;
-          *(im->channel[z] + i)= KSKP * v / (KS - fabs(v));
+          *(im->chan[z] + i)= KSKP * v / (KS - fabs(v));
         }
       }
     }
@@ -205,25 +208,11 @@ image *read_image(FILE *file, int sigma) {
       }
       ps= buf;
       for (x= 0; x < width; x++, i++) {
-        for (z= 0; z < depth; z++, ps++) {
-          *(im->channel[z] + i)= ((int)*ps - 128) * KP;
+        for (z= opaque; z < depth+opaque; z++, ps++) {
+          *(im->chan[z] + i)= ((int)*ps - 128) * KP;
         }
       }
     }
-  }
-  if (depth == 2) { // AG -> G--A
-    p= im->channel[0];
-    im->channel[0]= im->channel[1];
-    im->channel[1]= im->channel[3];
-    im->channel[3]= p;
-  }
-  else
-  if (depth == 4) { // ARGB -> RGBA
-    p= im->channel[0];
-    im->channel[0]= im->channel[1];
-    im->channel[1]= im->channel[2];
-    im->channel[2]= im->channel[3];
-    im->channel[3]= p;
   }
   free(buf);
   return im;
@@ -231,34 +220,21 @@ image *read_image(FILE *file, int sigma) {
 
 void write_image(image *im, FILE *file, int sigma) {
   int x, y;
-  int width= im->width, height= im->height, depth=im->depth;
+  int width= im->width, height= im->height;
   uchar *buf, *pt;
   float v;
   gray *p;
   ulong i;
-  int z;
+  int z, depth= im->depth, opaque= depth % 2;
   assert(file);
-  assert(1 <= depth && depth <= 4);
+  if (! opaque) error("write_image: alpha unsupported");
   if (depth == 1) fprintf(file, "P5\n");
-  else if (depth == 3) fprintf(file, "P6\n");
-  else error("write_image: depth should be 1 or 3");
+  else
+  if (depth == 3) fprintf(file, "P6\n");
+  else error("write_image: unsupported depth");
   fprintf(file, "%d %d\n255\n", width, height);
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
-  if (depth == 2) { // G--A -> AG
-    p= im->channel[3];
-    im->channel[3]= im->channel[1];
-    im->channel[1]= im->channel[0];
-    im->channel[0]= p;
-  }
-  else
-  if (depth == 4) { // RGBA -> AGRB
-    p= im->channel[3];
-    im->channel[3]= im->channel[2];
-    im->channel[2]= im->channel[1];
-    im->channel[1]= im->channel[0];
-    im->channel[0]= p;
-  }
   // TODO: don't modify im!
   image_dither(im,1,1);
   if (sigma) {
@@ -266,8 +242,8 @@ void write_image(image *im, FILE *file, int sigma) {
     for (y= 0; y < height; y++) {
       pt= buf;
       for (x= 0; x < width; x++, i++) {
-        for (z= 0; z < depth; z++, pt++) {
-          v= *(im->channel[z] + i);
+        for (z= 1; z <= depth; z++, pt++) {
+          v= *(im->chan[z] + i);
           v= KS * v / (KSKP + fabs(v));
           *pt= v + 128;
         }
@@ -279,8 +255,8 @@ void write_image(image *im, FILE *file, int sigma) {
     for (y= 0; y < height; y++) {
       pt= buf;
       for (x= 0; x < width; x++, i++) {
-        for (z= 0; z < depth; z++, pt++) {
-          v= *(im->channel[z] + i);
+        for (z= 1; z <= depth; z++, pt++) {
+          v= *(im->chan[z] + i);
           if (v < -MAXVAL) *pt= 0;
           else if (v > MAXVAL) *pt= 255;
           else *pt= v / KP + 128;
@@ -288,20 +264,6 @@ void write_image(image *im, FILE *file, int sigma) {
       }
       if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
-  }
-  if (depth == 2) { // AG -> G--A
-    p= im->channel[0];
-    im->channel[0]= im->channel[1];
-    im->channel[1]= im->channel[3];
-    im->channel[3]= p;
-  }
-  else
-  if (depth == 4) { // ARGB -> RGBA
-    p= im->channel[0];
-    im->channel[0]= im->channel[1];
-    im->channel[1]= im->channel[2];
-    im->channel[2]= im->channel[3];
-    im->channel[3]= p;
   }
   free(buf);
 }

@@ -7,8 +7,8 @@ int main(int argc, char **args) {
   int w= im->width;
   int h= im->height;
   om= copy_image(im);
-  im->depth= 3;
-  //im->channel[0]=im->channel[2];
-  write_image(im, stdout, 0);
+  image_laplace(om, -0.25);
+  write_image(om, stdout, 0);
+  exit(0);
 }
 // vim: sw=2 ts=2 sts=2 expandtab:

@@ -35,7 +35,7 @@
 
 typedef struct { // image
   char magic;
-  gray *channel[4];
+  gray *chan[4];
   uint width;
   uint height;
   int depth;

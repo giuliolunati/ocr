@@ -7,8 +7,10 @@ image *rotate_90_image(image *im, int angle) {
   om->ex= im->ex;
   om->pag= im->pag;
   gray *i, *o;
-  for (z= 0; z < im->depth; z++) {
-    i= im->channel[z]; o= om->channel[z];
+  for (z= 0; z < 4; z++) {
+    i= im->chan[z];
+    if (! i) continue;
+    o= om->chan[z];
     switch ((int)angle) {
       case 90:
       case -270:
@@ -54,10 +56,11 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
   uint w2= w - w1;
   image* im1= make_image(w1, h, im->depth);
   image* im2= make_image(w2, h, im->depth);
-  for (z= 0; z < im->depth; z++) {
-    p= im->channel[z];
-    p1= im1->channel[z];
-    p2= im2->channel[z];
+  for (z= 0; z < 4; z++) {
+    p= im->chan[z];
+    if (! p) continue;
+    p1= im1->chan[z];
+    p2= im2->chan[z];
     for (y= 0; y < h; y++, p += w, p1 += w1, p2 += w2) {
       memcpy(p1, p, w1 * sizeof(gray));
       memcpy(p2, p + w1, w2 * sizeof(gray));
@@ -81,9 +84,12 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   image* im2= make_image(w, h2, im->depth);
   l1= w * h1;
   l2= w * h2;
-  for (z= 0; z < im->depth; z++) {
-    memcpy(im1->channel[z], im->channel[z], l1 * sizeof(gray));
-    memcpy(im2->channel[z], im->channel[z] + l1, l2 * sizeof(gray));
+  gray *p;
+  for (z= 0; z < 4; z++) {
+    p= im->chan[z];
+    if (! p) continue;
+    memcpy(im1->chan[z], p, l1 * sizeof(gray));
+    memcpy(im2->chan[z], p + l1, l2 * sizeof(gray));
   }
   im1->pag= im->pag;
   im2->pag= im->pag + 1;
@@ -92,25 +98,27 @@ void splity_image(void **out1, void **out2, image *im, float y) {
 }
 
 image *crop(image *im, int x1, int y1, int x2, int y2) {
-  int depth= im->depth;
-  if (depth != 1) error("crop: invalid depth");
-  // 0 <= x1 < x2 <= im->width  
-  // 0 <= y1 < y2 <= im->height  
+  int z, depth= im->depth;
   int w= im->width;
   int h= im->height;
   int w1= x2 - x1;
   int h1= y2 - y1;
   int i;
   gray *s, *t;
+  // 0 <= x1 < x2 <= im->width  
+  // 0 <= y1 < y2 <= im->height  
   if (x1 < 0 || x2 <= x1 || x2 > w) error("crop: wrong x parameters\n");
   if (y1 < 0 || y2 <= y1 || y2 > h) error("crop: wrong y parameters\n");
   image *out= make_image(w1, h1, im->depth);
   out->ex= im->ex;
   out->pag= im->pag;
-  for (i= 0; i < h1; i++) {
-    s= im->channel[0] + (i + y1) * w + x1; 
-    t= out->channel[0] + i * w1;
-    memcpy(t, s, w1 * sizeof(*s));
+  for (z= 0; z < 4; z++) {
+    if (! im->chan[0]) continue;
+    for (i= 0; i < h1; i++) {
+      s= im->chan[0] + (i + y1) * w + x1; 
+      t= out->chan[0] + i * w1;
+      memcpy(t, s, w1 * sizeof(*s));
+    }
   }
   return out;
 }
@@ -136,11 +144,13 @@ real skew_score(int d, image *test, vector *v) {
   gray *pt;
   clear_vector(v);
   for (y= 0; y < h; y++) {
-    pt= test->channel[0] + y * w;
+    pt= test->chan[1] + y * w;
     x= 0;
     for (i= 0; i <= abs(d); i++) {
       if (d >= 0) {j= y + i;} else {j= y + w - i;} 
-      for (; x < w * (i + 1) / (abs(d) + 1); x++, pt++) {if (*pt) {v->data[j] += fabs(*pt);}}
+      for (; x < w * (i + 1) / (abs(d) + 1); x++, pt++) {
+        if (*pt) {v->data[j] += fabs(*pt);}
+      }
     }
   }
   t= 0;
@@ -155,21 +165,21 @@ real detect_skew(image *im) {
   int h= im->height;
   real t, s= 0;
   // create test image
-  image *test= make_image(w, h - 1, im->depth);
+  image *test= make_image(w, h-1, im->depth);
   gray *p1, *p2, *pt, *end;
   for (y= 0; y < h - 1; y++) {
-    p1= im->channel[0] + y * w;
+    p1= im->chan[1] + y * w;
     end= p2= p1 + w;
-    pt= test->channel[0] + y * w;
+    pt= test->chan[1] + y * w;
     for (; p1 < end; p1++, p2++, pt++) {
       t= fabs(*p1 - *p2);
       *pt= t;
       s += t * t;
     }
   }
-  s= sqrt(s / w / (h - 1));
+  s= sqrt(s / w / (h-1));
   for (y= 0; y < h - 1; y++) {
-    pt= test->channel[0] + y * w;
+    pt= test->chan[1] + y * w;
     end= pt + w;
     for (; pt < end; pt++) {
       if (*pt < s) {*pt= 0;}
@@ -201,34 +211,35 @@ void shearx_image(image *im, real t) {
   assert(fabs(t) <= 1);
   uint h= im->height;
   uint w= im->width;
-  uint y;
+  uint y, z;
   int di;
-  int depth= im->depth;
-  if (depth != 1) error("shearx_image: invalid depth");
   real dr, df, ca, cb, cc, cd;;
   gray *end, *p, *a, *b;
   gray *buf= malloc(w * sizeof(*buf));
-  for (y= 0; y < h; y++) {
-    memcpy(buf, im->channel[0] + (w * y), w * sizeof(*buf));
-    dr= ((int)y - (int)h/2) * t;
-    di= floor(dr);
-    df= dr - di;
-    if (di > 0) {
-      cb= df; ca= 1 - cb;
-      p= im->channel[0] + (w * y);
-      end= p + w;
-      b= buf + di;
-      a= b - 1;
-      for (; p + di < end; p++, a++, b++) *p= cb * *b + ca * *a;
-      for (; p < end; p++) *p= MAXVAL;
-    } else {
-      cb= df; ca= 1 - cb;
-      p= im->channel[0] + (w * y) + w - 1;
-      end= p - w;
-      b= buf + w - 1 + di;
-      a= b - 1;
-      for (; p + di - 1 > end; p--, a--, b--) *p= cb * *b + ca * *a;
-      for (; p > end; p--) *p= MAXVAL;
+  for (z=0; z<4; z++) {
+    if (! im->chan[z]) continue;
+    for (y= 0; y < h; y++) {
+      memcpy(buf, im->chan[z] + (w * y), w * sizeof(*buf));
+      dr= ((int)y - (int)h/2) * t;
+      di= floor(dr);
+      df= dr - di;
+      if (di > 0) {
+        cb= df; ca= 1 - cb;
+        p= im->chan[z] + (w * y);
+        end= p + w;
+        b= buf + di;
+        a= b - 1;
+        for (; p + di < end; p++, a++, b++) *p= cb * *b + ca * *a;
+        for (; p < end; p++) *p= MAXVAL;
+      } else {
+        cb= df; ca= 1 - cb;
+        p= im->chan[z] + (w * y) + w - 1;
+        end= p - w;
+        b= buf + w - 1 + di;
+        a= b - 1;
+        for (; p + di - 1 > end; p--, a--, b--) *p= cb * *b + ca * *a;
+        for (; p > end; p--) *p= MAXVAL;
+      }
     }
   }
   free(buf);
@@ -239,8 +250,7 @@ void sheary_image(image *im, real t) {
   assert(fabs(t) <= 1);
   uint w= im->width;
   uint h= im->height;
-  int depth= im->depth;
-  if (depth != 1) error("shear_y: invalid depth");
+  int z;
   gray *p, *end;
   gray *buf= malloc(w * sizeof(*buf));
   int d, *di= malloc(w * sizeof(*di));
@@ -251,51 +261,55 @@ void sheary_image(image *im, real t) {
     di[x]= floor(dr) * w;
     df[x]= dr - floor(dr);
   }
-  end= im->channel[0] + (w * h);
-  // down
-  if (t > 0) {a= 0; b= w/2;}
-  else  {a= w/2; b= w;}
-  for (y= 0; y < h; y++) {
-    p= im->channel[0] + (y * w) + a;
-    for (x= a; x < b; x++, p++) {
-      d= di[x];
-      f= df[x];
-      if (p + d + w < end) {
-        buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
-      } else {
-        buf[x]= MAXVAL;
+  for (z=0; z<4; z++) {
+    if (! im->chan[z]) continue;
+    end= im->chan[z] + (w * h);
+    // down
+    if (t > 0) {a= 0; b= w/2;}
+    else  {a= w/2; b= w;}
+    for (y= 0; y < h; y++) {
+      p= im->chan[z] + (y * w) + a;
+      for (x= a; x < b; x++, p++) {
+        d= di[x];
+        f= df[x];
+        if (p + d + w < end) {
+          buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
+        } else {
+          buf[x]= MAXVAL;
+        }
       }
+      memcpy(
+        im->chan[z] + y * w + a,
+        buf + a ,
+        (b - a) * sizeof(*buf)
+      );
     }
-    memcpy(
-      im->channel[0] + y * w + a,
-      buf + a ,
-      (b - a) * sizeof(*buf)
-    );
-  }
-  if (t > 0) {a= w/2; b= w;}
-  else  {a= 0; b= w/2;}
-  for (y= h - 1; y >= 0; y--) { // y MUST be signed!
-    p= im->channel[0] + (y * w) + a;
-    for (x= a; x < b; x++, p++) {
-      d= di[x];
-      f= df[x];
-      if (p + d + w >= end) {
-        assert(d == 0);
-        buf[x]= *p;
+    if (t > 0) {a= w/2; b= w;}
+    else  {a= 0; b= w/2;}
+    // up
+    for (y= h - 1; y >= 0; y--) { // y MUST be signed!
+      p= im->chan[z] + (y * w) + a;
+      for (x= a; x < b; x++, p++) {
+        d= di[x];
+        f= df[x];
+        if (p + d + w >= end) {
+          assert(d == 0);
+          buf[x]= *p;
+        }
+        else
+        if (p + d >= im->chan[z]) {
+          buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
+        }
+        else {
+          buf[x]= MAXVAL;
+        }
       }
-      else
-      if (p + d >= im->channel[0]) {
-        buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
-      }
-      else {
-        buf[x]= MAXVAL;
-      }
+      memcpy(
+        im->chan[z] + y * w + a,
+        buf + a ,
+        (b - a) * sizeof(*buf)
+      );
     }
-    memcpy(
-      im->channel[0] + y * w + a,
-      buf + a ,
-      (b - a) * sizeof(*buf)
-    );
   }
   free(buf);
   free(di);
@@ -363,7 +377,7 @@ image *autocrop(image *im, int width, int height) {
 
   // calc vx
   for (i= 0; i < h - 1; i++, py++) {
-    p= im->channel[0] + i * w;
+    p= im->chan[1] + i * w;
     end= p + w - 1;
     px= vx->data;
     for (; p < end; p++, px++) {
@@ -377,7 +391,7 @@ image *autocrop(image *im, int width, int height) {
   // calc vy
   py= vy->data;
   for (i= 0; i < h - 1; i++, py++) {
-    p= im->channel[0] + i * w + x1;
+    p= im->chan[1] + i * w + x1;
     end= p + width - 1;
     for (; p < end; p++, px++) {
       if (*p / k != *(p + 1) / k) (*py)++;
