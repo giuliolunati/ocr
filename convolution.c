@@ -347,26 +347,49 @@ void image_laplace(image *im, real k) {
   int x, y, z;
   int len= w * sizeof(gray);
   gray *buf= (gray *) malloc(3 * len);
-  if (! buf) error("convolve_3x3: out of memory.");
+  if (! buf) error("image_laplace: out of memory.");
   for (z= 1; z < 4; z++) {
     if (! im->chan[z]) continue;
-    memcpy(buf, im->chan[z], 2 * len);
     gray *i0, *i1, *i2, *o;
-    o= im->chan[z] + w;
+    o= im->chan[z];
+    memcpy(buf, o, 2 * len);
+    // y=0
+    *o= 0;
+    o++;
+    i1= buf+1;
+    for (x=1; x < w-1; x++,i1++,o++) {
+      *o= (real) k * (
+        *(i1-1) - *i1*2 + *(i1+1)
+      );
+    }
+    *o= 0;
+    //
     for (y=1; y < h-1; y++) {
       i0= buf; i1= i0 + w; i2 = i1 + w;
+      o= im->chan[z] + w*y;
       memcpy(i2, o + w, len);
-      for (x= 0; x < w-2; x++) {
-        o++;
+      *o= (real) k * (*i0 - *i1*2 + *i2);
+      i0++, i1++, i2++, o++;
+      for (x=1; x < w-1; x++,i0++,i1++,i2++,o++) {
         *o= (real) k * (
-          + (*i1) + *(i1+2) + *(i0+1) + *(i2+1)
-          -4 * *(i1+1)
+          *(i1-1) + *(i1+1) + *i0 + *i2 - *i1 * 4
         );
-        i0++, i1++, i2++;
       }
-      o += 2;
+      *o= (real) k * (*i0 - *i1*2 + *i2);
+      o ++;
       memmove(buf, buf + w, 2 * len);
     }
+    // y=h-1
+    o= im->chan[z]+w*(h-1);
+    *o= 0;
+    o++;
+    i1= buf+2*w+1;
+    for (x=1; x < w-1; x++,i1++,o++) {
+      *o= (real) k * (
+        *(i1-1) - *i1*2 + *(i1+1)
+      );
+    }
+    *o= 0;
   }
   free(buf);
 }
@@ -445,7 +468,7 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
   gray *pt, *pg;
   real err, mean;
   // inner
-  float recur= log2(MAX(w,h)/800.0);
+  float recur= log2(MAX(w,h)/8.0);
   if (recur > 1) for (n= 2; n>0; n--) {
     fprintf(stderr, "%d", n);
     image_poisson_step(
