@@ -10,8 +10,8 @@ void help(char **arg0, char *topic) {
 if (! topic) {
   printf("\nUSAGE: %s COMMANDS...\n\n", *arg0);
   printf("COMMANDS:\n\
-+ [s:]FILENAME.EXT -------- load a PNM image\n\
-+ [s:]- -------------------- load from STDIN\n\
++ FILENAME.EXT -------- load image from file\n\
++ - ------------------ load image from STDIN\n\
 + autocrop WIDTH HEIGHT ----------- autocrop\n\
 - bg ----------------------- find background\n\
 - bin {auto | THRESHOLD} ---- to black&white\n\
@@ -39,7 +39,7 @@ if (! topic) {
 - skew ANGLE ----------- rotate (-45 ... 45)\n\
 + splitx {X | N} ---------- split vertically\n\
 + splity {Y | N} -------- split horizontally\n\
-+ w [s:]FILENAME/- ---- write to file/stdout\n\
++ w FILENAME/- -------- write to file/stdout\n\
 - -h, --help ------------------ this summary\n\
 - -h, --help COMMAND ------- help on COMMAND\n\
   \n");
@@ -118,8 +118,8 @@ int main(int argc, char **args) {
 
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
-    if (ARG_IS("-")) { // see also s:-
-      push(read_image(stdin, 0));
+    if (ARG_IS("-")) {
+      push(image_read(stdin));
     }
     else
     if (ARG_IS("-h") || ARG_IS("--help")) {
@@ -220,7 +220,7 @@ int main(int argc, char **args) {
         i= i + 1;
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, 0);
+        img= image_read(f);
         if (i == 1) { push(img); }
         else { darker_image(im(1), img); }
       }
@@ -350,10 +350,6 @@ int main(int argc, char **args) {
       swap(); pop();
     }
     else
-    if (ARG_IS("s:-")) { // -
-      push(read_image(stdin, 1));
-    }
-    else
     if (ARG_IS("skew")) { // FLOAT
       if (! *(++arg)) error("skew: missing parameter");
       skew(im(1), atof(*arg));
@@ -391,15 +387,11 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("unpop")) unpop();
     else
-    if (ARG_IS("w")) { // [s:]FILENAME
+    if (ARG_IS("w")) { // FILENAME
       if (! *(++arg)) error("w: missing filename");
       p= pop();
       if (IS_IMAGE(p)) {
         img= p;
-        if (*arg == strstr(*arg, "s:")) {
-          c= 1;
-          (*arg) += 2; // discard s:
-        } else c= 0;
         if (strlen(*arg) >= 200) {
           error1("file name too long:", *arg);
         }
@@ -417,16 +409,16 @@ int main(int argc, char **args) {
           strcat(cmd, name);
           f= popen(cmd, "w");
           if (! f) error1("Popen failed:", strerror(errno));
-          write_image(p, f, c);
+          image_write(p, f);
           pclose(f);
         } else if (l > 0) {
           f= fopen(name, "wb");
-          write_image(p, f, c);
+          image_write(p, f);
           fclose(f);
         }
         else {
           f= stdout;
-          write_image(p, f, c);
+          image_write(p, f);
         }
       }
       else
@@ -442,11 +434,7 @@ int main(int argc, char **args) {
       }
     }
     else
-    if (strchr(*arg, '.')) { // [s:]FILENAME.EXT
-      if (*arg == strstr(*arg, "s:")) {
-        c= 1;
-        (*arg) += 2; // discard s:
-      } else c= 0;
+    if (strchr(*arg, '.')) { // FILENAME.EXT
       i= get_page_number(*arg);
       l= strlen(*arg);
       ext= *arg + l - 4;
@@ -458,12 +446,12 @@ int main(int argc, char **args) {
         strcat(cmd, *arg);
         f= popen(cmd, "r");
         if (! f) error1("Popen failed:", strerror(errno));
-        img= read_image(f, c);
+        img= image_read(f);
         pclose(f);
       } else {
         f= fopen(*arg, "rb");
         if (! f) error1("File not found:", *arg);
-        img= read_image(f, c);
+        img= image_read(f);
         fclose(f);
       }
       if (i > 9999) error("page number > 9999");

@@ -115,7 +115,7 @@ char *read_next_token(FILE *file) {
   return buf;
 }
 
-image *read_image(FILE *file, int sigma) {
+image *image_read(FILE *file) {
   int x, y, prec, magic, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
@@ -126,23 +126,23 @@ image *read_image(FILE *file, int sigma) {
 
   assert(file);
   if (1 > fscanf(file, "P%d ", &magic))
-  { error("read_image: wrong magic."); }
+  { error("image_read: wrong magic."); }
   if (magic < 7) { // PNM
     if (0 >= (width= atoi(read_next_token(file))))
-    { error("read_image: wrong width."); }
+    { error("image_read: wrong width."); }
     if (0 >= (height= atoi(read_next_token(file))))
-    { error("read_image: wrong height."); }
+    { error("image_read: wrong height."); }
     if (0 >= (prec= atoi(read_next_token(file))))
-    { error("read_image: wrong precision"); }
+    { error("image_read: wrong precision"); }
     if (1 > fscanf(file, "%c", &c) || 
       (c != ' ' && c != '\t' && c != '\n')
     ) {
-      error("read_image: no w/space after precision");
+      error("image_read: no w/space after precision");
     }
     switch (magic) {
       case 5: depth= 1; break;
       case 6: depth= 3; break;
-      default: error("read_image: Invalid depth.");
+      default: error("image_read: Invalid depth.");
     }
   } else if (magic == 7) { // PAM
     while (1) {
@@ -170,7 +170,7 @@ image *read_image(FILE *file, int sigma) {
         if (EQ(tok, "RGB")) depth= 3;
         else
         if (EQ(tok, "RGB_ALPHA")) depth= 4;
-        else error("read_image: unknown TUPLTYPE");
+        else error("image_read: unknown TUPLTYPE");
         c= '#';
         while (c != '\n') fscanf(file, "%c", &c);
       }
@@ -178,39 +178,22 @@ image *read_image(FILE *file, int sigma) {
   }
   //fprintf(stderr, "%d x %d x %d \n", depth, width, height); exit(1);
   if (prec != 255)
-  { error("read_image: Precision != 255.");
+  { error("image_read: Precision != 255.");
   }
   assert(width > 0 && height > 0);
   assert(1 <= depth && depth <= 4);
   im= make_image(width, height, depth);
   int opaque= depth % 2;
   buf= malloc(width * depth);
-
-  if (sigma) {
-    i= 0;
-    for (y= 0; y < height; y++) {
-      if (width > fread(buf, depth, width, file)) {
-        error("read_image: Unexpected EOF");
-      }
-      ps= buf;
-      for (x= 0; x < width; x++, i++) {
-        for (z= opaque; z < depth+opaque; z++, ps++) {
-          v= *ps - 128;
-          *(im->chan[z] + i)= KSKP * v / (KS - fabs(v));
-        }
-      }
+  i= 0;
+  for (y= 0; y < height; y++) {
+    if (width > fread(buf, depth, width, file)) {
+      error("image_read: Unexpected EOF");
     }
-  } else {
-    i= 0;
-    for (y= 0; y < height; y++) {
-      if (width > fread(buf, depth, width, file)) {
-        error("read_image: Unexpected EOF");
-      }
-      ps= buf;
-      for (x= 0; x < width; x++, i++) {
-        for (z= opaque; z < depth+opaque; z++, ps++) {
-          *(im->chan[z] + i)= ((int)*ps - 128) * KP;
-        }
+    ps= buf;
+    for (x= 0; x < width; x++, i++) {
+      for (z= opaque; z < depth+opaque; z++, ps++) {
+        *(im->chan[z] + i)= ((int)*ps - 128) * KP;
       }
     }
   }
@@ -218,7 +201,7 @@ image *read_image(FILE *file, int sigma) {
   return im;
 }
 
-void write_image(image *im, FILE *file, int sigma) {
+void image_write(image *im, FILE *file) {
   int x, y;
   int width= im->width, height= im->height;
   uchar *buf, *pt;
@@ -227,43 +210,28 @@ void write_image(image *im, FILE *file, int sigma) {
   ulong i;
   int z, depth= im->depth, opaque= depth % 2;
   assert(file);
-  if (! opaque) error("write_image: alpha unsupported");
+  if (! opaque) error("image_write: alpha unsupported");
   if (depth == 1) fprintf(file, "P5\n");
   else
   if (depth == 3) fprintf(file, "P6\n");
-  else error("write_image: unsupported depth");
+  else error("image_write: unsupported depth");
   fprintf(file, "%d %d\n255\n", width, height);
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
   // TODO: don't modify im!
-  image_dither(im,1,1);
-  if (sigma) {
-    i= 0;
-    for (y= 0; y < height; y++) {
-      pt= buf;
-      for (x= 0; x < width; x++, i++) {
-        for (z= 1; z <= depth; z++, pt++) {
-          v= *(im->chan[z] + i);
-          v= KS * v / (KSKP + fabs(v));
-          *pt= v + 128;
-        }
+  // image_dither(im,1,1);
+  i= 0;
+  for (y= 0; y < height; y++) {
+    pt= buf;
+    for (x= 0; x < width; x++, i++) {
+      for (z= 1; z <= depth; z++, pt++) {
+        v= *(im->chan[z] + i);
+        if (v < -MAXVAL) *pt= 0;
+        else if (v > MAXVAL) *pt= 255;
+        else *pt= v / KP + 128;
       }
-      if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
     }
-  } else {
-    i= 0;
-    for (y= 0; y < height; y++) {
-      pt= buf;
-      for (x= 0; x < width; x++, i++) {
-        for (z= 1; z <= depth; z++, pt++) {
-          v= *(im->chan[z] + i);
-          if (v < -MAXVAL) *pt= 0;
-          else if (v > MAXVAL) *pt= 255;
-          else *pt= v / KP + 128;
-        }
-      }
-      if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
-    }
+    if (width > fwrite(buf, depth, width, file)) error("Error writing file.");
   }
   free(buf);
 }
