@@ -177,11 +177,6 @@ float deconvolve_3x3_step_old(
   }
   destroy_image(im2);
   err= sqrt(err / (w*h));
-  if (err > 999) {
-    fprintf(stderr, "p=%f p1=%f q=%f q2=%f r=%f \n", p,p1,q,q1,r);
-    image_write(om, stdout);
-    error(".");
-  }
   return err;
 }
 

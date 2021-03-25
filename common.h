@@ -79,8 +79,8 @@ void ensure_init_srgb();
 image *make_image(int width, int height, int depth);
 void destroy_image(image *im);
 image *copy_image(image *im);
-image *image_read(FILE *file);
-void image_write(image *im, FILE *file);
+image *image_read(char *fname);
+void image_write(image *im, char *fname);
 
 // misc.c
 void error(const char *msg);

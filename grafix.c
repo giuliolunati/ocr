@@ -119,7 +119,7 @@ int main(int argc, char **args) {
   if (argc < 2) help(args, NULL);
   while (*(++arg)) {
     if (ARG_IS("-")) {
-      push(image_read(stdin));
+      push(image_read(NULL)); // stdin
     }
     else
     if (ARG_IS("-h") || ARG_IS("--help")) {
@@ -215,13 +215,10 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("darker")) {
-      i= 0;
+      i= 1;
       while (strchr(*(++arg), '.')) { // FILENAME.EXT
-        i= i + 1;
-        f= fopen(*arg, "rb");
-        if (! f) error1("File not found:", *arg);
-        img= image_read(f);
-        if (i == 1) { push(img); }
+        img= image_read(*arg);
+        if (i) { push(img); i= 0; }
         else { darker_image(im(1), img); }
       }
       arg--;
@@ -395,30 +392,11 @@ int main(int argc, char **args) {
         if (strlen(*arg) >= 200) {
           error1("file name too long:", *arg);
         }
-        if (EQ(*arg, "-")) l= 0;
-        else {
+        if (EQ(*arg, "-")) {
+          image_write(img, NULL);
+        } else {
           sprintf(name, *arg, img->pag);
-          l= strlen(name);
-          ext= name + l - 4;
-        }
-        if (l >= 4 && EQ(ext, ".jpg")) {
-          strcpy(cmd, pnmtojpeg);
-          if (strlen(pnmtojpeg) + strlen(name) >= CMD_LEN) {
-            error1("name too long: %s", name);
-          }
-          strcat(cmd, name);
-          f= popen(cmd, "w");
-          if (! f) error1("Popen failed:", strerror(errno));
-          image_write(p, f);
-          pclose(f);
-        } else if (l > 0) {
-          f= fopen(name, "wb");
-          image_write(p, f);
-          fclose(f);
-        }
-        else {
-          f= stdout;
-          image_write(p, f);
+          image_write(img, name);
         }
       }
       else
@@ -436,25 +414,8 @@ int main(int argc, char **args) {
     else
     if (strchr(*arg, '.')) { // FILENAME.EXT
       i= get_page_number(*arg);
-      l= strlen(*arg);
-      ext= *arg + l - 4;
-      if (l >= 4 && EQ(ext, ".jpg")) {
-        strcpy(cmd, jpegtopnm);
-        if (strlen(jpegtopnm) + strlen(*arg) >= CMD_LEN) {
-          error1("name too long: %s", *arg);
-        }
-        strcat(cmd, *arg);
-        f= popen(cmd, "r");
-        if (! f) error1("Popen failed:", strerror(errno));
-        img= image_read(f);
-        pclose(f);
-      } else {
-        f= fopen(*arg, "rb");
-        if (! f) error1("File not found:", *arg);
-        img= image_read(f);
-        fclose(f);
-      }
       if (i > 9999) error("page number > 9999");
+      img= image_read(*arg);
       img->pag= i;
       push(img);
     }

@@ -1,4 +1,5 @@
 #include "common.h"
+#include <errno.h>
 
 #define EQ(a, b) (0 == strcmp((a), (b)))
 
@@ -115,7 +116,7 @@ char *read_next_token(FILE *file) {
   return buf;
 }
 
-image *image_read(FILE *file) {
+image *image_read_pnm(FILE *file) {
   int x, y, prec, magic, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
@@ -126,23 +127,23 @@ image *image_read(FILE *file) {
 
   assert(file);
   if (1 > fscanf(file, "P%d ", &magic))
-  { error("image_read: wrong magic."); }
+  { error("image_read_pnm: wrong magic."); }
   if (magic < 7) { // PNM
     if (0 >= (width= atoi(read_next_token(file))))
-    { error("image_read: wrong width."); }
+    { error("image_read_pnm: wrong width."); }
     if (0 >= (height= atoi(read_next_token(file))))
-    { error("image_read: wrong height."); }
+    { error("image_read_pnm: wrong height."); }
     if (0 >= (prec= atoi(read_next_token(file))))
-    { error("image_read: wrong precision"); }
+    { error("image_read_pnm: wrong precision"); }
     if (1 > fscanf(file, "%c", &c) || 
       (c != ' ' && c != '\t' && c != '\n')
     ) {
-      error("image_read: no w/space after precision");
+      error("image_read_pnm: no w/space after precision");
     }
     switch (magic) {
       case 5: depth= 1; break;
       case 6: depth= 3; break;
-      default: error("image_read: Invalid depth.");
+      default: error("image_read_pnm: Invalid depth.");
     }
   } else if (magic == 7) { // PAM
     while (1) {
@@ -170,7 +171,7 @@ image *image_read(FILE *file) {
         if (EQ(tok, "RGB")) depth= 3;
         else
         if (EQ(tok, "RGB_ALPHA")) depth= 4;
-        else error("image_read: unknown TUPLTYPE");
+        else error("image_read_pnm: unknown TUPLTYPE");
         c= '#';
         while (c != '\n') fscanf(file, "%c", &c);
       }
@@ -178,7 +179,7 @@ image *image_read(FILE *file) {
   }
   //fprintf(stderr, "%d x %d x %d \n", depth, width, height); exit(1);
   if (prec != 255)
-  { error("image_read: Precision != 255.");
+  { error("image_read_pnm: Precision != 255.");
   }
   assert(width > 0 && height > 0);
   assert(1 <= depth && depth <= 4);
@@ -188,7 +189,7 @@ image *image_read(FILE *file) {
   i= 0;
   for (y= 0; y < height; y++) {
     if (width > fread(buf, depth, width, file)) {
-      error("image_read: Unexpected EOF");
+      error("image_read_pnm: Unexpected EOF");
     }
     ps= buf;
     for (x= 0; x < width; x++, i++) {
@@ -201,7 +202,7 @@ image *image_read(FILE *file) {
   return im;
 }
 
-void image_write(image *im, FILE *file) {
+void image_write_pnm(image *im, FILE *file) {
   int x, y;
   int width= im->width, height= im->height;
   uchar *buf, *pt;
@@ -210,11 +211,11 @@ void image_write(image *im, FILE *file) {
   ulong i;
   int z, depth= im->depth, opaque= depth % 2;
   assert(file);
-  if (! opaque) error("image_write: alpha unsupported");
+  if (! opaque) error("image_write_pnm: alpha unsupported");
   if (depth == 1) fprintf(file, "P5\n");
   else
   if (depth == 3) fprintf(file, "P6\n");
-  else error("image_write: unsupported depth");
+  else error("image_write_pnm: unsupported depth");
   fprintf(file, "%d %d\n255\n", width, height);
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
@@ -236,4 +237,59 @@ void image_write(image *im, FILE *file) {
   free(buf);
 }
 
+#define CMDLEN 256
+char cmd[CMDLEN];
+char *jpegtopnm= "jpegtopnm -quiet ";
+char *pnmtojpeg= "pnmtojpeg -quiet -quality 90 > ";
+
+image *image_read(char *fname) {
+  FILE *f;
+  image *img;
+  if (! fname) return image_read_pnm(stdin);
+  int l= strlen(fname);
+  char *ext= fname + l - 4;
+  if (l >= 4 && EQ(ext, ".jpg")) {
+    assert(CMDLEN > strlen(jpegtopnm));
+    strcpy(cmd, jpegtopnm);
+    if (strlen(jpegtopnm) + l >= CMDLEN) {
+      error1("image_read: name too long: %s", fname);
+    }
+    strcat(cmd, fname);
+    f= popen(cmd, "r");
+    if (! f) error1("image_read: popen failed:", strerror(errno));
+    img= image_read_pnm(f);
+    pclose(f);
+  } else {
+    f= fopen(fname, "rb");
+    if (! f) error1("image_read: can't read file ", fname);
+    img= image_read_pnm(f);
+    fclose(f);
+  }
+  return img;
+}
+
+void image_write(image *im, char *fname) {
+  FILE *f;
+  if (! fname)
+  { image_write_pnm(im, stdout); return; }
+  int l= strlen(fname);
+  char *ext= fname + l - 4;
+  if (l >= 4 && EQ(ext, ".jpg")) {
+    assert(CMDLEN > strlen(pnmtojpeg));
+    strcpy(cmd, pnmtojpeg);
+    if (strlen(pnmtojpeg) + strlen(fname) >= CMDLEN) {
+      error1("image_write: name too long: %s", fname);
+    }
+    strcat(cmd, fname);
+    f= popen(cmd, "w");
+    if (! f) error1("image_write: popen failed:", strerror(errno));
+    image_write_pnm(im, f);
+    pclose(f);
+  } else {
+    f= fopen(fname, "wb");
+    if (! f) error1("image_write: can't write file", fname);
+    image_write_pnm(im, f);
+    fclose(f);
+  }
+}
 // vim: set et sw=2:
