@@ -120,10 +120,8 @@ image *image_read_pnm(FILE *file) {
   int x, y, prec, magic, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
-  ulong i;
   int z;
   char c, *tok;
-  gray *p, v;
 
   assert(file);
   if (1 > fscanf(file, "P%d ", &magic))
@@ -176,8 +174,10 @@ image *image_read_pnm(FILE *file) {
         while (c != '\n') fscanf(file, "%c", &c);
       }
     }
+    fscanf(file, "%c", &c);
+    if (c != '\n') 
+    { error("image_read_pnm: missing newline after ENDHDR"); }
   }
-  //fprintf(stderr, "%d x %d x %d \n", depth, width, height); exit(1);
   if (prec != 255)
   { error("image_read_pnm: Precision != 255.");
   }
@@ -186,15 +186,24 @@ image *image_read_pnm(FILE *file) {
   im= make_image(width, height, depth);
   int opaque= depth % 2;
   buf= malloc(width * depth);
-  i= 0;
+  gray *p[4];
+  // for grayscale, RGB, RGBA 
+  p[0]= im->chan[1];
+  p[1]= im->chan[2];
+  p[2]= im->chan[3];
+  p[3]= im->chan[0];
+  // for gray+alpha
+  if (depth == 2) p[1]= p[3]; // alpha
+  //
   for (y= 0; y < height; y++) {
     if (width > fread(buf, depth, width, file)) {
       error("image_read_pnm: Unexpected EOF");
     }
     ps= buf;
-    for (x= 0; x < width; x++, i++) {
-      for (z= opaque; z < depth+opaque; z++, ps++) {
-        *(im->chan[z] + i)= ((int)*ps - 128) * KP;
+    for (x= 0; x < width; x++) {
+      for (z= 0; z < depth; z++, ps++) {
+        *p[z]= ((int)*ps - 128) * KP;
+        p[z]++;
       }
     }
   }
@@ -207,26 +216,44 @@ void image_write_pnm(image *im, FILE *file) {
   int width= im->width, height= im->height;
   uchar *buf, *pt;
   float v;
-  gray *p;
-  ulong i;
+
   int z, depth= im->depth, opaque= depth % 2;
   assert(file);
-  if (! opaque) error("image_write_pnm: alpha unsupported");
-  if (depth == 1) fprintf(file, "P5\n");
-  else
-  if (depth == 3) fprintf(file, "P6\n");
-  else error("image_write_pnm: unsupported depth");
-  fprintf(file, "%d %d\n255\n", width, height);
+  if (opaque) {
+    if (depth == 1) fprintf(file, "P5\n");
+    else
+    if (depth == 3) fprintf(file, "P6\n");
+    else error("image_write_pnm: unsupported depth");
+    fprintf(file, "%d %d\n255\n", width, height);
+  } else {
+    fprintf(file, "P7\n");
+    fprintf(file, "WIDTH %d\n", width);
+    fprintf(file, "HEIGHT %d\n", height);
+    fprintf(file, "DEPTH %d\n", depth);
+    fprintf(file, "MAXVAL 255\n");
+    fprintf(file, "TUPLTYPE ");
+    if (depth == 2) fprintf(file, "GRAYSCALE_ALPHA\n");
+    else
+    if (depth == 4) fprintf(file, "RGB_ALPHA\n");
+    else error("image_write_pnm: unsupported depth");
+    fprintf(file, "ENDHDR\n");
+  }
   buf= malloc(width * depth * sizeof(*buf));
   assert(buf);
-  // TODO: don't modify im!
-  // image_dither(im,1,1);
-  i= 0;
+  gray *p[4];
+  // for grayscale, RGB, RGBA 
+  p[0]= im->chan[1];
+  p[1]= im->chan[2];
+  p[2]= im->chan[3];
+  p[3]= im->chan[0];
+  // for gray+alpha
+  if (depth == 2) p[1]= p[3]; // alpha
+  //
   for (y= 0; y < height; y++) {
     pt= buf;
-    for (x= 0; x < width; x++, i++) {
-      for (z= 1; z <= depth; z++, pt++) {
-        v= *(im->chan[z] + i);
+    for (x= 0; x < width; x++) {
+      for (z= 0; z < depth; z++, pt++) {
+        v= *p[z]; p[z]++;
         if (v < -MAXVAL) *pt= 0;
         else if (v > MAXVAL) *pt= 255;
         else *pt= v / KP + 128;
@@ -240,7 +267,10 @@ void image_write_pnm(image *im, FILE *file) {
 #define CMDLEN 256
 char cmd[CMDLEN];
 char *jpegtopnm= "jpegtopnm -quiet ";
+char *pngtopam= "pngtopam -quiet -alphapam ";
+char *pngtopnm= "pngtopam -quiet ";
 char *pnmtojpeg= "pnmtojpeg -quiet -quality 90 > ";
+char *pnmtopng= "pamtopng -quiet > ";
 
 image *image_read(char *fname) {
   FILE *f;
@@ -248,10 +278,23 @@ image *image_read(char *fname) {
   if (! fname) return image_read_pnm(stdin);
   int l= strlen(fname);
   char *ext= fname + l - 4;
-  if (l >= 4 && EQ(ext, ".jpg")) {
-    assert(CMDLEN > strlen(jpegtopnm));
-    strcpy(cmd, jpegtopnm);
-    if (strlen(jpegtopnm) + l >= CMDLEN) {
+  char *filter= NULL;
+  unsigned char type;
+  if (l >= 4) {
+    if (EQ(ext, ".jpg")) filter= jpegtopnm;
+    else if (EQ(ext, ".png")) {
+      f= fopen(fname, "rb");
+      if (! f) error1("image_read: can't read file ", fname);
+      fseek(f, 25, SEEK_SET);
+      fscanf(f, "%c", &type);
+      if (type & 4) filter= pngtopam;
+      else filter= pngtopnm;
+    }
+  }
+  if (filter) {
+    assert(CMDLEN > strlen(filter));
+    strcpy(cmd, filter);
+    if (strlen(filter) + l >= CMDLEN) {
       error1("image_read: name too long: %s", fname);
     }
     strcat(cmd, fname);
@@ -274,10 +317,15 @@ void image_write(image *im, char *fname) {
   { image_write_pnm(im, stdout); return; }
   int l= strlen(fname);
   char *ext= fname + l - 4;
-  if (l >= 4 && EQ(ext, ".jpg")) {
-    assert(CMDLEN > strlen(pnmtojpeg));
-    strcpy(cmd, pnmtojpeg);
-    if (strlen(pnmtojpeg) + strlen(fname) >= CMDLEN) {
+  char *filter= NULL;
+  if (l >= 4) {
+    if (EQ(ext, ".jpg")) filter= pnmtojpeg;
+    else if (EQ(ext, ".png")) filter= pnmtopng;
+  }
+  if (filter) {
+    assert(CMDLEN > strlen(filter));
+    strcpy(cmd, filter);
+    if (strlen(filter) + strlen(fname) >= CMDLEN) {
       error1("image_write: name too long: %s", fname);
     }
     strcat(cmd, fname);
