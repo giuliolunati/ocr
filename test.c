@@ -1,14 +1,15 @@
 #include "common.h"
 
 int main(int argc, char **args) {
-  image *om, *im= image_read(args[1]);
-  image_write(im, NULL);
+  image *im= image_read(args[1]);
+  int x= im->width * 0.2;
+  int y= im->height * 0.2;
+  int w= im->width * 0.6;
+  int h= im->height * 0.6;
+  image_sel_make(im, 0.5);
+  image_sel_rect(im, 1, x, y, w, h);
+  image_alpha_to_sel(im);
+  image_write(im, args[2]);
   exit(0);
-  float x;
-  //x= atof(args[1]);
-  int w= im->width;
-  int h= im->height;
-  om= copy_image(im);
-  image_laplace(om, -0.25);
 }
 // vim: sw=2 ts=2 sts=2 expandtab:

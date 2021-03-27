@@ -23,8 +23,7 @@ image *image_background(image *im) {
   d= 0.333 / d;
   d= exp(-d);
   int x, y, z, h= im->height, w= im->width;
-  int depth= im->depth;
-  image *om= make_image(w, h, depth);
+  image *om= image_make(w, h, im->depth);
   om->ex= im->ex;
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
@@ -74,14 +73,12 @@ image *image_background(image *im) {
 void divide_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
-  int depth= a->depth;
-  int opaque= depth % 2;
-  assert(opaque);
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("divide_image: size mismatch.");
-  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
-  for (z= 1; z < depth; z++) {
+  for (z= 1; z < 4; z++) {
+    pa= a->chan[z]; pb= b->chan[z];
+    if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
       *pa= (real)*pa / *pb * MAXVAL;
       pa++; pb++;
@@ -117,7 +114,9 @@ void contrast_image(image *im, real black, real white) {
   black *= MAXVAL;
   white *= MAXVAL;
   if (white == black) {
-    for (z=1; z < depth; z++) {
+    for (z= 1; z < 4; z++) {
+      p= im->chan[z];
+      if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p <= black) *p= 0;
         else *p= MAXVAL;
@@ -130,7 +129,9 @@ void contrast_image(image *im, real black, real white) {
   q= MAXVAL -m * white;
 
   if (black < white) {
-    for (z=1; z < depth; z++) {
+    for (z= 1; z < 4; z++) {
+      p= im->chan[z];
+      if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p <= black) *p= -MAXVAL;
         else if (*p >= white) *p= MAXVAL;
@@ -141,7 +142,9 @@ void contrast_image(image *im, real black, real white) {
   }
 
   else { // white < black
-    for (z=1; z < depth; z++) {
+    for (z= 1; z < 4; z++) {
+      p= im->chan[z];
+      if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p >= black) *p= -MAXVAL;
         else if (*p <= white) *p= MAXVAL;
@@ -239,13 +242,12 @@ void mean_y(image *im, uint d) {
 void darker_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
-  int depth= a->depth;
   int i,z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("darker_image: size mismatch.");
-  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
-  for (z=1; z < depth; z++) {
+  for (z=1; z < 4; z++) {
     pa= a->chan[z]; pb= b->chan[z];
+    if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
       if (*pa > *pb) { *pa= *pb; };
       pa++; pb++;
@@ -336,10 +338,10 @@ void diff_image(image *a, image *b) {
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("diff_image: size mismatch.");
-  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
-  for (z= 1; z < depth; z++) {
+  if (b->depth % 2 != depth % 2) error("diff_image: depth mismatch.");
+  for (z= 1; z < 4; z++) {
     pa= a->chan[z]; pb= b->chan[z];
-    assert(pa && pb);
+    if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
       *pa= *pa - *pb;
       pa++; pb++;
@@ -350,14 +352,13 @@ void diff_image(image *a, image *b) {
 void patch_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
-  int depth= a->depth;
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("patch_image: size mismatch.");
-  if ((b->depth & 7) != (depth & 7)) error("diff_image: depth mismatch.");
-  for (z= 1; z < depth; z++) {
+  if (b->depth % 2 != a->depth % 2) error("diff_image: depth mismatch.");
+  for (z= 1; z < 4; z++) {
     pa= a->chan[z]; pb= b->chan[z];
-    assert(pa && pb);
+    if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
       *pa= *pa + *pb;
       pa++; pb++;
@@ -373,7 +374,7 @@ void image_quantize(image *im, float step) {
   float v;
   int i, z;
   for (z= 0; z < 4; z++) {
-    p= im->chan[0];
+    p= im->chan[z];
     if (! p) continue;
     end= p + w*h;
     step *= KP;
@@ -389,7 +390,7 @@ void image_dither(image *im, int step, int border) {
   if (border) border= 1;
   int h= im->height;
   int w= im->width;
-  int z, depth= im->depth;
+  int z;
   int i= 0;
   float v;
   int x, y;

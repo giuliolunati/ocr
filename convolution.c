@@ -4,7 +4,6 @@ void convolve_3x3(image *im, real a, real b, real c, real d) {
   // d c d
   // b a b  symmetric 3x3 kernel
   // d c d
-  int depth= im->depth;
   int w= im->width, h= im->height;
   int z, x, y;
   int len= w * sizeof(gray);
@@ -38,7 +37,7 @@ void deconvolve_3x1(image *im, real a, real b, real c, int border) {
   // a b c
   if (border) border= 1;
   int i, y, n= im->width, h= im->height;
-  int z, depth= im->depth;
+  int z;
   real *th;
   real t= a + b + c;
   real *aa= malloc(n * sizeof(*aa));
@@ -85,7 +84,7 @@ void deconvolve_1x3(image *im, real a, real b, real c, int border) {
   // a b c
   if (border) border= 1;
   int i, x, w= im->width, n= im->height;
-  int z, depth= im->depth;
+  int z;
   gray *s;
   real *th;
   real p,q,r, *v= malloc(n * sizeof(*v));
@@ -124,69 +123,13 @@ void deconvolve_1x3(image *im, real a, real b, real c, int border) {
   free(th); free(v);
 }
 
-float deconvolve_3x3_step_old(
-    image *im, image *om, int z,
-    real a, real b, real c, real d,
-    int steps, float maxerr
-  ) {
-  int i, x, y, w= im->width, h= im->height;
-  fprintf(stderr, "%dx%d \n", w,h);
-  double t, err;
-  gray *pi, *po;
-  image *im2= NULL;
-  // y = Ax
-  // A = PQ-R
-  // y = PQx - Rx
-  // (PQ)^-1 (y+Rx) = x
-  real p= sqrt(fabs(a)), q= a/p;
-  real p1= b/p, q1= c/q;
-  real r= p1*q1 - d;
-  assert(im->depth == 1);
-  for (i=steps; i>0; i--) {
-    pi= im->chan[0];
-    po= om->chan[0];
-    for (x= 0; x < w; x++,pi++,po++)
-    { *po= *pi; }
-    for (y= 1; y < h-1; y++) {
-      *po= *pi; pi += w-1, po += w-1;
-      *po= *pi; pi++, po++;
-    }
-    for (x= 0; x < w; x++,pi++,po++)
-    { *po= *pi; }
-    convolve_3x3(om, 0,0,0,r);
-    // om += im
-    for (y= 1; y < h-1; y++) {
-      pi= im->chan[0] + y*w + 1;
-      po= om->chan[0] + y*w + 1;
-      for (x= 1; x < w-1; x++,pi++,po++)
-      { *po += *pi; }
-    }
-    deconvolve_3x1(om, p1, p, p1, 0);
-    deconvolve_1x3(om, q1, q, q1, 0);
-  }
-  assert(! im2);
-  im2= copy_image(om);
-  convolve_3x3(im2, a,b,c,d);
-  pi= im2->chan[0];
-  po= im->chan[0];
-  err= 0;
-  for (y= 0; y < h; y++)
-  for (x= 0; x < w; x++,pi++,po++) {
-    t= *po - *pi;
-    err += t*t;
-  }
-  destroy_image(im2);
-  err= sqrt(err / (w*h));
-  return err;
-}
-
 float deconvolve_3x3_step(
     image *im, image *om,
     real a, real b, real c, real d,
     int steps, float maxerr
   ) {
   int z, n, x, y, dx;
-  int depth= im->depth, w= im->width, h= im->height;
+  int w= im->width, h= im->height;
   float k= a*a / (a*a + 2*b*b + 2*c*c + 4*d*d);
   gray *po, *pi, *pu, *pd;
   double t, err1, err= 0;
@@ -244,10 +187,9 @@ float deconvolve_3x3_step(
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr) {
   image *him, *hom, *om, *im2, *om2;
   int n, x, y, z;
-  int depth= im->depth; 
   int w= im->width, h= im->height;
 
-  om= make_image(w, h, depth);
+  om= image_make(w, h, im->depth);
   gray *pi, *po;
   real err, mean;
   // border
@@ -319,10 +261,10 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
       }
       for (x= 0; x < w; x++,pi++,po++) *po= *pi;
     }
-    destroy_image(him);
-    destroy_image(hom);
-    destroy_image(im2);
-    destroy_image(om2);
+    image_destroy(him);
+    image_destroy(hom);
+    image_destroy(im2);
+    image_destroy(om2);
     fprintf(stderr, " ");
   }
   err= deconvolve_3x3_step(
@@ -337,7 +279,6 @@ void image_laplace(image *im, real k) {
   // d c d
   // b a b  symmetric 3x3 kernel
   // d c d
-  int depth= im->depth;
   int w= im->width, h= im->height;
   int x, y, z;
   int len= w * sizeof(gray);
@@ -456,7 +397,6 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
   image *ta1, *gu1, *ta2, *gu2;
   int z, n, x, y;
   assert(guess);
-  int depth= guess->depth;
   int w= target->width, h= target->height;
   if (guess->width != w || guess->height != h)
   { error("image_poisson: size mismatch."); }
@@ -482,7 +422,7 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
     }
     ta2= image_half(ta1);
     gu2= image_half(guess);
-    fill_image(gu2, 0);
+    image_sel_fill(gu2, NAN, 0, 0, 0);
     image_poisson(
         ta2,
         gu2,
@@ -500,10 +440,10 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
         for (x= 1; x < w-1; x++,pt++,pg++) *pg += *pt;
       }
     }
-    destroy_image(ta2);
-    destroy_image(gu2);
-    destroy_image(ta1);
-    destroy_image(gu1);
+    image_destroy(ta2);
+    image_destroy(gu2);
+    image_destroy(ta1);
+    image_destroy(gu1);
     fprintf(stderr, " ");
   }
   err= image_poisson_step(

@@ -3,7 +3,7 @@
 image *rotate_90_image(image *im, int angle) {
   int w= im->width, h= im->height;
   int x, y, z, dx, dy;
-  image *om= make_image(h, w, im->depth);
+  image *om= image_make(h, w, im->depth);
   om->ex= im->ex;
   om->pag= im->pag;
   gray *i, *o;
@@ -54,9 +54,9 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
   uint w= im->width;
   uint w1= w * x;
   uint w2= w - w1;
-  image* im1= make_image(w1, h, im->depth);
-  image* im2= make_image(w2, h, im->depth);
-  for (z= 0; z < 4; z++) {
+  image* im1= image_make(w1, h, im->depth);
+  image* im2= image_make(w2, h, im->depth);
+  for (z= 0; z < 5; z++) {
     p= im->chan[z];
     if (! p) continue;
     p1= im1->chan[z];
@@ -80,12 +80,12 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   ulong l1, l2; 
   uint h1= im->height * y;
   uint h2= im->height - h1;
-  image* im1= make_image(w, h1, im->depth);
-  image* im2= make_image(w, h2, im->depth);
+  image* im1= image_make(w, h1, im->depth);
+  image* im2= image_make(w, h2, im->depth);
   l1= w * h1;
   l2= w * h2;
   gray *p;
-  for (z= 0; z < 4; z++) {
+  for (z= 0; z < 5; z++) {
     p= im->chan[z];
     if (! p) continue;
     memcpy(im1->chan[z], p, l1 * sizeof(gray));
@@ -109,14 +109,14 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   // 0 <= y1 < y2 <= im->height  
   if (x1 < 0 || x2 <= x1 || x2 > w) error("crop: wrong x parameters\n");
   if (y1 < 0 || y2 <= y1 || y2 > h) error("crop: wrong y parameters\n");
-  image *out= make_image(w1, h1, im->depth);
+  image *out= image_make(w1, h1, im->depth);
   out->ex= im->ex;
   out->pag= im->pag;
-  for (z= 0; z < 4; z++) {
-    if (! im->chan[0]) continue;
+  for (z= 0; z < 5; z++) {
+    if (! im->chan[z]) continue;
     for (i= 0; i < h1; i++) {
-      s= im->chan[0] + (i + y1) * w + x1; 
-      t= out->chan[0] + i * w1;
+      s= im->chan[z] + (i + y1) * w + x1; 
+      t= out->chan[z] + i * w1;
       memcpy(t, s, w1 * sizeof(*s));
     }
   }
@@ -165,7 +165,7 @@ real detect_skew(image *im) {
   int h= im->height;
   real t, s= 0;
   // create test image
-  image *test= make_image(w, h-1, im->depth);
+  image *test= image_make(w, h-1, im->depth);
   gray *p1, *p2, *pt, *end;
   for (y= 0; y < h - 1; y++) {
     p1= im->chan[1] + y * w;
@@ -216,7 +216,7 @@ void shearx_image(image *im, real t) {
   real dr, df, ca, cb, cc, cd;;
   gray *end, *p, *a, *b;
   gray *buf= malloc(w * sizeof(*buf));
-  for (z=0; z<4; z++) {
+  for (z=0; z<5; z++) {
     if (! im->chan[z]) continue;
     for (y= 0; y < h; y++) {
       memcpy(buf, im->chan[z] + (w * y), w * sizeof(*buf));
@@ -261,7 +261,7 @@ void sheary_image(image *im, real t) {
     di[x]= floor(dr) * w;
     df[x]= dr - floor(dr);
   }
-  for (z=0; z<4; z++) {
+  for (z=0; z<5; z++) {
     if (! im->chan[z]) continue;
     end= im->chan[z] + (w * h);
     // down

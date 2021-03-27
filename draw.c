@@ -14,7 +14,7 @@ void draw_grid(image *im, int stepx, int stepy) {
   for (z= 0; z < 4; z++) {
     if (! im->chan[z]) continue;
     for (y= 0; y < h; y++) {
-      p= im->chan[0] + y * w;
+      p= im->chan[z] + y * w;
       for(x= 0; x < w; x++, p++) {
         if (
           y % sbigy == 0 ||
@@ -27,26 +27,12 @@ void draw_grid(image *im, int stepx, int stepy) {
   }
 }
 
-void fill_image(image *im, real v) {
-  gray s= MAXVAL * v;
-  int z;
-  gray *p, *end;
-
-  for (z= 0; z < 4; z++) {
-    if (! im->chan[z]) continue;
-    for (
-      p= im->chan[z], end= p + (im->width * im->height);
-      p < end;
-      p ++
-    ) *p= s;
-  }
-}
-
 void poke(image *im, int x, int y, int z, gray v) {
   if (x < 0 || x > im->width) error("poke: invalid x");
   if (y < 0 || y > im->height) error("poke: invalid y");
   if (! im->chan[z]) error("poke: invalid chan");
   *(im->chan[z] + im->width * y + x)= MAXVAL * v;
 }
+
 
 // vim: sw=2 ts=2 sts=2 expandtab:

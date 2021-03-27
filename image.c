@@ -7,20 +7,21 @@
 
 real default_ex= 25;
 
-image *make_image(int width, int height, int depth) {
+image *image_make(int width, int height, int depth) {
   assert(1 <= depth && depth <= 4);
-  if (height < 1 || width < 1) error("make_image: size <= 0");
+  if (height < 1 || width < 1) error("image_make: size <= 0");
   int i;
   int opaque= depth % 2;
   gray *p;
   image *im= malloc(sizeof(image));
-  if (! im) error("make_image: can't alloc memory");
+  if (! im) error("image_make: can't alloc memory");
   for (i= opaque; i < depth+opaque; i ++) {
     p= calloc (width * height, sizeof(*p));
-    if (! p) error("make_image: can't alloc memory");
+    if (! p) error("image_make: can't alloc memory");
     im->chan[i]= p;
   } for (; i < 4; i ++) im->chan[i]= NULL;
-  if (opaque) im->chan[0]= NULL;
+  if (opaque) im->ALPHA= NULL;
+  im->SEL= NULL;
   im->magic= 'I';
   im->width= width;
   im->height= height;
@@ -32,12 +33,13 @@ image *make_image(int width, int height, int depth) {
   return im;
 }
 
-void destroy_image(image *im) {
+void image_destroy(image *im) {
   if (! im) return;
   int i;
   for (i= 0; i < 4; i ++) {
     if (im->chan[i]) free(im->chan[i]);
   }
+  if (im->SEL) free(im->SEL);
   free(im);
 }
 
@@ -144,7 +146,7 @@ image *image_read_pnm(FILE *file) {
   }
   assert(width > 0 && height > 0);
   assert(1 <= depth && depth <= 4);
-  im= make_image(width, height, depth);
+  im= image_make(width, height, depth);
   int opaque= depth % 2;
   buf= malloc(width * depth);
   gray *p[4];

@@ -12,7 +12,6 @@ if (! topic) {
   printf("COMMANDS:\n\
 + FILENAME.EXT -------- load image from file\n\
 + - ------------------ load image from STDIN\n\
-+ autocrop WIDTH HEIGHT ----------- autocrop\n\
 - bg ----------------------- find background\n\
 - bin {auto | THRESHOLD} ---- to black&white\n\
 - contrast BLACK WHITE ---- enhance contrast\n\
@@ -25,7 +24,7 @@ if (! topic) {
 - div --------------------- divide im2 / im1\n\
 - double HARDNESS ----------- double up size\n\
 - ex HEIGHT ----------- set lowercase height\n\
-- fill GRAY [0..1] -------------------- fill\n\
+- fill A R G B -------------- fill selection\n\
 - fix-bg -------------------- fix background\n\
 - grid STEP ----------- draw grid over image\n\
 - half ---------------------- half down size\n\
@@ -35,6 +34,7 @@ if (! topic) {
 - pag NUM ------------------ set page number\n\
 - poisson -------------------- solve poisson\n\
 - quit ------------------- quit w/out output\n\
+- rectangle VAL X Y W H --- select rectangle\n\
 + rot ANGLE ----- rotate (only +-90 180 270)\n\
 - skew ANGLE ----------- rotate (-45 ... 45)\n\
 + splitx {X | N} ---------- split vertically\n\
@@ -98,6 +98,18 @@ image *im(int i) {
   return (image*)stack[sp - i];
 }
 
+char type(char *a) {
+  if (!a) return 0;
+  if (strchr(a, '.')) {
+    if (EQ(a, "0.0") || EQ(a, "-0.0") || atof(a)) return 'd'; // decimal
+    else return 'f'; // filename
+  } else {
+    if (EQ(a, "0") || EQ(a, "-0") || atoi(a)) return 'i'; // integer
+    else if (EQ(a, "-")) return '-'; // null
+    else return 'w'; // word
+  }
+}
+
 //// MAIN ////
 int main(int argc, char **args) {
   #define ARG_IS(x) EQ((x), *arg)
@@ -113,7 +125,7 @@ int main(int argc, char **args) {
   vector *v;
   void *p;
   FILE *f;
-  real t, x, y;
+  real x, y, t[9];
   int c, l, i, w, h;
 
   if (argc < 2) help(args, NULL);
@@ -127,20 +139,6 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("all")); // see odd, even
-    else
-    if (ARG_IS("autocrop")) { // FLOAT FLOAT
-      img= im(1);
-      if (! *(++arg)) error("autocrop: missing WIDTH parameter");
-      x= atof(*arg);
-      if (x <= 1) x *= img->width;
-      if (x <= 0 || x > img->width) error("autocrop: invalid WIDTH parameter");
-      if (! *(++arg)) error("autocrop: missing HEIGHT parameter");
-      y= atof(*arg);
-      if (y <= 1) y *= img->height;
-      if (y <= 0 || y > img->height) error("autocrop: invalid HEIGHT parameter");
-      push(autocrop(img, x, y));
-      swap(); pop();
-    }
     else
     if (ARG_IS("bg")) { // FLOAT
       push(image_background(im(1)));
@@ -216,9 +214,9 @@ int main(int argc, char **args) {
     }
     else
     if (ARG_IS("deskew")) {
-      t= detect_skew(im(1));
-      fprintf(stderr, "skew: %g\n", t);
-      skew(im(1), t);
+      x= detect_skew(im(1));
+      fprintf(stderr, "skew: %g\n", x);
+      skew(im(1), x);
     }
     else
     if (ARG_IS("diff")) {
@@ -254,20 +252,26 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("ex")) { // FLOAT
       if (! *(++arg)) error("ex: missing parameter");
-      t= atof(*arg);
-      if (t <= 0) error("ex param must be > 0.");
+      x= atof(*arg);
+      if (x <= 0) error("ex param must be > 0.");
       if (sp) {
         img= im(1);
-        if (t < 1) t *= img->height;
-        img->ex= t;
+        if (x < 1) x *= img->height;
+        img->ex= x;
       }
-      default_ex= t;
+      default_ex= x;
     }
     else
-    if (ARG_IS("fill")) { // FLOAT
-      if (! *(++arg)) error("fill: missing parameter");
-      t= atof(*arg);
-      fill_image(im(1), t);
+    if (ARG_IS("fill")) { // A,R,G,B
+      for (i= 0; i < 4; i++) {
+        arg++;
+        if (! *arg) error("fill: missing parameter");
+        if (type(*arg) == 'i') t[i]= atof(*arg) / 255;
+        else if (type(*arg) == 'd') t[i]= atof(*arg);
+        else if (EQ(*arg, "-")) t[i]= NAN;
+        else error("fill: wrong parameter");
+      }
+      image_sel_fill(im(1),t[0],t[1],t[2],t[3]);
     }
     else
     if (ARG_IS("fix-bg")) {
@@ -325,12 +329,30 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("poisson")) {
       if (! *(++arg)) error("poisson: missing PRECISION");
-      t= atof(*arg);
-      image_poisson(im(1), im(2), -0.25, 0, t);
+      x= atof(*arg);
+      image_poisson(im(1), im(2), -0.25, 0, x);
       pop();
     }
     else
     if (ARG_IS("quit")) exit(0);
+    else
+    if (ARG_IS("rectangle")) { // VAL X Y W H
+      img= im(1);
+      for (i= 0; i < 5; i++) {
+        arg++;
+        c= type(*arg); 
+        if (! c) error("rectangle: missing parameter");
+        if (c == 'i') t[i]= atof(*arg);
+        else if (c == 'd') {
+          t[i]= atof(*arg);
+          if (i == 0) ;
+          else if (i % 2) t[i] *= img->width;
+          else t[i] *= img->height;
+        }
+        else error("rectangle: wrong parameter");
+      }
+      image_sel_rect(im(1),t[0],t[1],t[2],t[3],t[4]);
+    }
     else
     if (ARG_IS("rot")) { // +-90, 180, 270
       if (! *(++arg)) error("rot: missing parameter");

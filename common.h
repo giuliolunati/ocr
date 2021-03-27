@@ -30,12 +30,11 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-
 // TYPES //
 
 typedef struct { // image
   char magic;
-  gray *chan[4];
+  gray *chan[5];
   uint width;
   uint height;
   int depth;
@@ -47,6 +46,9 @@ typedef struct { // image
   real area;
   real thickness;
 } image;
+
+#define ALPHA chan[0]
+#define SEL chan[4]
 
 typedef struct { // vector
   char magic;
@@ -69,13 +71,13 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
 
 // draw.c
 void draw_grid(image *im, int stepx, int stepy);
-void fill_image(image *im, real v);
+void image_sel_fill(image *im, real v0, real v1, real v2, real v3);
 void poke(image *im, int x, int y, int chan, gray v);
 
 // image.c
 extern real default_ex;
-image *make_image(int width, int height, int depth);
-void destroy_image(image *im);
+image *image_make(int width, int height, int depth);
+void image_destroy(image *im);
 image *copy_image(image *im);
 image *image_read(char *fname);
 void image_write(image *im, char *fname);
@@ -104,6 +106,12 @@ image *image_half(image *im);
 image *image_redouble_x(image *im, int odd);
 image *image_redouble_y(image *im, int odd);
 image *image_redouble(image *im, int oddx, int oddy);
+
+// select.c
+void image_alpha_to_sel(image *im);
+void image_sel_make(image *im, gray v);
+void image_sel_rect(image *im, real mode, int x0, int y0, int w, int h);
+void image_sel_fill(image *im, real v0, real v1, real v2, real v3);
 
 // transform.c
 image *rotate_90_image(image *im, int angle);

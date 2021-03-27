@@ -9,8 +9,8 @@ image *image_half_x(image *im) {
   int wo, x, y, z;
   gray *pi, *po;
   wo= (wi + wi%2) / 2; 
-  om= make_image(wo, h, depth);
-  for (z= 0; z < 4; z++) {
+  om= image_make(wo, h, depth);
+  for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     if (wi % 2) { // odd
       a= 1.0/16; b= 4.0/16; c= 6.0/16;
@@ -59,8 +59,8 @@ image *image_half_y(image *im) {
   real a, b, c, s;
   gray *pi, *po;
   ho= (hi + hi%2) / 2; 
-  om= make_image(w, ho, depth);
-  for (z= 0; z < 4; z++) {
+  om= image_make(w, ho, depth);
+  for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     if (hi % 2) { // odd
       a= 1.0/16; b= 4.0/16; c= 6.0/16;
@@ -112,7 +112,7 @@ image *image_half_y(image *im) {
 image *image_half(image *im) {
   image *t= image_half_x(im);
   im= image_half_y(t);
-  destroy_image(t);
+  image_destroy(t);
   return im;
 }
 
@@ -127,8 +127,8 @@ image *image_redouble_x(image *im, int odd) {
   real a, b, c, d, s;
   gray *pi, *po;
   wo= wi*2 - odd; 
-  om= make_image(wo, h, depth);
-  for (z= 0; z < depth; z++) {
+  om= image_make(wo, h, depth);
+  for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     pi= im->chan[z];
     po= om->chan[z];
@@ -208,8 +208,8 @@ image *image_redouble_y(image *im, int odd) {
   real a, b, c, d, s;
   gray *pi, *po;
   ho= hi*2 - odd;
-  om= make_image(w, ho, depth);
-  for (z= 0; z < 4; z++) {
+  om= image_make(w, ho, depth);
+  for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     po= om->chan[z];
     pi= im->chan[z];
@@ -289,7 +289,7 @@ image *image_redouble_y(image *im, int odd) {
 image *image_redouble(image *im, int oddx, int oddy) {
   image *t= image_redouble_x(im, oddx);
   im= image_redouble_y(t, oddy);
-  destroy_image(t);
+  image_destroy(t);
   return im;
 }
 
@@ -297,7 +297,7 @@ image *image_double(image *im, real k /*sharpness*/) {
   int depth= im->depth;
   int w= im->width, h= im->height;
   int x, y, z;
-  image *om= make_image(2 * w, 2 * h, im->depth);
+  image *om= image_make(2 * w, 2 * h, im->depth);
   om->ex= 2 * im->ex;
   om->pag= im->pag;
   gray *i1, *i2, *i3, *i4, *o;
@@ -307,7 +307,7 @@ image *image_double(image *im, real k /*sharpness*/) {
   a= a * (1 - k) + a1 * k;
   b= b * (1 - k) + b1 * k;
   c= c * (1 - k) + c1 * k;
-  for (z= 0; z < 4; z++) {
+  for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     for (y= 0; y < h; y++) {
       i4= i3= im->chan[z] + (w * y);
