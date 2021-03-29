@@ -74,8 +74,6 @@ void poke(image *im, int x, int y, int chan, gray v);
 
 // image.c
 extern real default_ex;
-extern gray *srgb_to_lin;
-void ensure_init_srgb();
 image *make_image(int width, int height, int depth);
 void destroy_image(image *im);
 image *copy_image(image *im);

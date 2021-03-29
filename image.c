@@ -3,45 +3,6 @@
 
 #define EQ(a, b) (0 == strcmp((a), (b)))
 
-//// SRGB ////
-  // 0 <= srgb <= 1  0 <= lin <= 1
-  // srgb < 0.04045: lin= srgb / 12.92
-  // srgb > 0.04045: lin= [(srgb + 0.055) / 1.055]^2.4
-
-gray *srgb_to_lin= NULL;
-uchar *srgb_from_lin= NULL;
-
-void ensure_init_srgb() {
-  if (srgb_to_lin && srgb_from_lin) return;
-  srgb_to_lin= realloc(srgb_to_lin, 256);
-  srgb_from_lin= realloc(srgb_from_lin, MAXVAL + 1);
-  float x, x0= 0;
-  int l0= 0, l= 0;
-  int s;
-  for (s= 1; s <= 256; s ++) {
-    x= s / 256.0;
-    // sRGB map [0, 1] -> [0, 1]
-    if (x < 0.04045) x /= 12.92;
-    else x= pow( (x + 0.055) / 1.055, 2.4 );
-    //
-    while (l + 0.5 < x * (MAXVAL + 1)) {
-      srgb_from_lin[l]= s-1;
-      l ++;
-    }
-    srgb_to_lin[s-1]= l0= (l0 + l - 1) / 2;
-    x0= x; l0= l;
-  }
-  while (l <= MAXVAL) {
-    srgb_from_lin[l]= 255;
-    l ++;
-  }
-  assert(srgb_to_lin[255] <= MAXVAL);
-  assert(srgb_from_lin[MAXVAL] == 255);
-  for (s= 0; s <= 255; s ++) assert(
-    s == (srgb_from_lin[(int)srgb_to_lin[s]])
-  );
-}
-
 //// IMAGES ////
 
 real default_ex= 25;
