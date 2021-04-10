@@ -290,42 +290,42 @@ void image_laplace(image *im, real k) {
     o= im->chan[z];
     memcpy(buf, o, 2 * len);
     // y=0
-    *o= 0;
+    *o= 0.5;
     o++;
     i1= buf+1;
     for (x=1; x < w-1; x++,i1++,o++) {
-      *o= (real) k * (
+      *o= 0.5 + (real) k * (
         *(i1-1) - *i1*2 + *(i1+1)
       );
     }
-    *o= 0;
+    *o= 0.5;
     //
     for (y=1; y < h-1; y++) {
       i0= buf; i1= i0 + w; i2 = i1 + w;
       o= im->chan[z] + w*y;
       memcpy(i2, o + w, len);
-      *o= (real) k * (*i0 - *i1*2 + *i2);
+      *o= 0.5 + (real) k * (*i0 - *i1*2 + *i2);
       i0++, i1++, i2++, o++;
       for (x=1; x < w-1; x++,i0++,i1++,i2++,o++) {
-        *o= (real) k * (
+        *o= 0.5 + (real) k * (
           *(i1-1) + *(i1+1) + *i0 + *i2 - *i1 * 4
         );
       }
-      *o= (real) k * (*i0 - *i1*2 + *i2);
-      o ++;
+      *o= 0.5 + (real) k * (*i0 - *i1*2 + *i2);
+      o++;
       memmove(buf, buf + w, 2 * len);
     }
     // y=h-1
     o= im->chan[z]+w*(h-1);
-    *o= 0;
+    *o= 0.5;
     o++;
     i1= buf+2*w+1;
     for (x=1; x < w-1; x++,i1++,o++) {
-      *o= (real) k * (
+      *o= 0.5 + (real) k * (
         *(i1-1) - *i1*2 + *(i1+1)
       );
     }
-    *o= 0;
+    *o= 0.5;
   }
   free(buf);
 }
@@ -358,7 +358,7 @@ float image_poisson_step(
           if (! opaque) pa= target->chan[3] + y*w + 1 + dx;
           for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
             if (! opaque && *pa <=0) continue;
-            t= ( *pt/k
+            t= ( (*pt-0.5)/k
               - *(pg-1) - *(pg+1) - *(pg-w) - *(pg+w)
             ) / -4 - *pg;
             err1 += t*t;
@@ -380,8 +380,10 @@ float image_poisson_step(
           if (! opaque) pa= target->chan[3] + y*w + 1 + dx;
           for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
             if (! opaque && *pa <=0) continue;
+            // k(p...-4pg) = pt-0.5
+            // p... - (pt-0.5)/k = 4pg
             *pg= (
-              *(pg-1) + *(pg+1) + *(pg-w) + *(pg+w) - *pt/k
+              *(pg-1) + *(pg+1) + *(pg-w) + *(pg+w) - (*pt-0.5)/k
             ) / 4;
           } 
         }
@@ -418,11 +420,11 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
       pt= target->chan[z];
       pg= ta1->chan[z];
       for (y= 0; y < h; y++)
-      for (x= 0; x < w; x++,pt++,pg++) *pg= *pt - *pg;
+      for (x= 0; x < w; x++,pt++,pg++) *pg= *pt - *pg + 0.5;
     }
     ta2= image_half(ta1);
     gu2= image_half(guess);
-    image_sel_fill(gu2, NAN, 0, 0, 0);
+    image_sel_fill(gu2, NAN, 0.5, 0.5, 0.5);
     image_poisson(
         ta2,
         gu2,
@@ -437,7 +439,7 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
       for (y= 1; y < h-1; y++) {
         pt= gu1->chan[z] + y*w + 1;
         pg= guess->chan[z] + y*w + 1;
-        for (x= 1; x < w-1; x++,pt++,pg++) *pg += *pt;
+        for (x= 1; x < w-1; x++,pt++,pg++) *pg += *pt - 0.5;
       }
     }
     image_destroy(ta2);

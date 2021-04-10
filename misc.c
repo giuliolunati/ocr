@@ -80,7 +80,7 @@ void divide_image(image *a, image *b) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
-      *pa= (real)*pa / *pb * MAXVAL;
+      *pa= (real)*pa / *pb;
       pa++; pb++;
     }
   }
@@ -89,16 +89,17 @@ void divide_image(image *a, image *b) {
 vector *histogram_of_image(image *im, int chan) {
   vector *hi= make_vector(256);
   hi->len= hi->size;
-  gray *p= im->chan[chan];
+  gray v, *p= im->chan[chan];
   real *d= hi->data;
   int x, y, h= im->height, w= im->width;
   for (y= 0; y < h; y++) {
     for (x= 0; x < w; x++) {
-      if (*p < 0) d[0] += 1;
+      v= (*p * 255 + 0.5);
+      if (v < 0) d[0] += 1;
       else
-      if (*p > MAXVAL) d[255] += 1;
+      if (v > 1) d[255] += 1;
       else
-      d[(int)(*p / KP)] += 1;
+      d[(int)v] += 1;
       p++;
     }
   }
@@ -111,30 +112,28 @@ void contrast_image(image *im, real black, real white) {
   int z, depth= im->depth;
   assert(1 <= depth && depth <= 4);
   unsigned long int i, l= im->width * im->height;
-  black *= MAXVAL;
-  white *= MAXVAL;
   if (white == black) {
     for (z= 1; z < 4; z++) {
       p= im->chan[z];
       if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p <= black) *p= 0;
-        else *p= MAXVAL;
+        else *p= 1;
       }
     }
     return;
   }
   //mw+q=M mb+q=-M m(w-b)=2M
-  m= 2 * MAXVAL / (white - black) ;
-  q= MAXVAL -m * white;
+  m= 1.0 / (white - black) ;
+  q= -m * black;
 
   if (black < white) {
     for (z= 1; z < 4; z++) {
       p= im->chan[z];
       if (!p) continue;
       for (i=0; i<l; i++,p++) {
-        if (*p <= black) *p= -MAXVAL;
-        else if (*p >= white) *p= MAXVAL;
+        if (*p <= black) *p= 0;
+        else if (*p >= white) *p= 1;
         else *p= *p * m + q;
       }
     }
@@ -146,8 +145,8 @@ void contrast_image(image *im, real black, real white) {
       p= im->chan[z];
       if (!p) continue;
       for (i=0; i<l; i++,p++) {
-        if (*p >= black) *p= -MAXVAL;
-        else if (*p <= white) *p= MAXVAL;
+        if (*p >= black) *p= 0;
+        else if (*p <= white) *p= 1;
         else *p= *p * m + q;
       }
     }
@@ -281,14 +280,16 @@ void calc_statistics(image *im, int verbose) {
   // histograms
   for (y= 0; y < h; y++) {
     for (x= 0; x < w; x++) {
-      a= *pi / KP; b= *px / KP;
+      a= *pi * 255 + 0.5;
+      b= *px * 255 + 0.5;
       pa[a]++;
       if ((x >= w - 1) || (y >= h - 1)) {continue;} 
       if (a > b) {c= b; b= a; a= c;}
       pb[a]++; pb[b]--;
       d= b - a; d *= d;
       pt[a] += d; pt[b] -= d;
-      a= *pi / KP; b= *py / KP;
+      a= *pi * 255 + 0.5;
+      b= *py * 255 + 0.5;
       if (a > b) {c= b; b= a; a= c;}
       pb[a]++; pb[b]--;
       d= b - a; d *= d;
@@ -343,7 +344,7 @@ void diff_image(image *a, image *b) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
-      *pa= *pa - *pb;
+      *pa= *pa - *pb + 0.5;
       pa++; pb++;
     }
   }
@@ -360,13 +361,13 @@ void patch_image(image *a, image *b) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
-      *pa= *pa + *pb;
+      *pa= *pa + *pb - 0.5;
       pa++; pb++;
     }
   }
 }
 
-void image_quantize(image *im, float step) {
+void image_quantize(image *im, float steps) {
   int h= im->height;
   int w= im->width;
   int depth= im->depth;
@@ -377,16 +378,14 @@ void image_quantize(image *im, float step) {
     p= im->chan[z];
     if (! p) continue;
     end= p + w*h;
-    step *= KP;
     for (; p < end; p++) {
       v= *p;
-      *p = step * roundf(v/step);
+      *p = roundf((v-0.5) * steps) / steps + 0.5;
     }
   }
 }
 
-void image_dither(image *im, int step, int border) {
-  step *= KP;
+void image_dither(image *im, int steps, int border) {
   if (border) border= 1;
   int h= im->height;
   int w= im->width;
@@ -395,14 +394,13 @@ void image_dither(image *im, int step, int border) {
   float v;
   int x, y;
   gray *p;
-  assert((MAXVAL+1) % step == 0);
   for (z=0; z < 4; z++) {
     if (! im->chan[z]) continue;
     for (y= border; y < h-border; y++) {
       p= im->chan[z] + y*w + border;
       for (x= border; x < w-border; x++,p++) {
         v= *p;
-        *p= step * roundf((v+MAXVAL+1)/step) - MAXVAL-1;
+        *p= roundf((*p-0.5) * steps) / steps + 0.5;
         v= (v-*p)/16;
         if (x+1 < w-border) {
           *(p+1) += 7*v;

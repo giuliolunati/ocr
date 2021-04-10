@@ -16,16 +16,6 @@
 #define gray float
 
 #define ASSERT(cond) assert(cond)
-#define MAXSHORT 32767
-
-// used for encoding in read/write_image
-#define KP 32
-// MAXVAL= 128 * KP - 1
-#define MAXVAL 4095
-// KS= 128 * (MAXSHORT+1)/ (MAXSHORT-MAXVAL)
-#define KS 146.28571428571428
-// KSKP= KS * KP
-#define KSKP 4681.142857142857
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -123,7 +113,6 @@ void skew(image* im, real angle);
 real detect_skew(image *im);
 void shearx_image(image *im, real t);
 void sheary_image(image *im, real t);
-image *autocrop(image *im, int width, int height);
 
 // vector.c
 vector *make_vector(uint size);

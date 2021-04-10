@@ -230,7 +230,7 @@ void shearx_image(image *im, real t) {
         b= buf + di;
         a= b - 1;
         for (; p + di < end; p++, a++, b++) *p= cb * *b + ca * *a;
-        for (; p < end; p++) *p= MAXVAL;
+        for (; p < end; p++) *p= *(p-1);
       } else {
         cb= df; ca= 1 - cb;
         p= im->chan[z] + (w * y) + w - 1;
@@ -238,7 +238,7 @@ void shearx_image(image *im, real t) {
         b= buf + w - 1 + di;
         a= b - 1;
         for (; p + di - 1 > end; p--, a--, b--) *p= cb * *b + ca * *a;
-        for (; p > end; p--) *p= MAXVAL;
+        for (; p > end; p--) *p= *(p+1);
       }
     }
   }
@@ -273,9 +273,9 @@ void sheary_image(image *im, real t) {
         d= di[x];
         f= df[x];
         if (p + d + w < end) {
-          buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
+          buf[x]= *(p+d)*(1-f) + *(p+d+w)*f;
         } else {
-          buf[x]= MAXVAL;
+          buf[x]= *(p+d);
         }
       }
       memcpy(
@@ -298,10 +298,10 @@ void sheary_image(image *im, real t) {
         }
         else
         if (p + d >= im->chan[z]) {
-          buf[x]= (1-f) * *(p + d) + f * *(p + d + w);
+          buf[x]= *(p+d)*(1-f) + *(p+d+w)*f;
         }
         else {
-          buf[x]= MAXVAL;
+          buf[x]= *(p+d+w);
         }
       }
       memcpy(
@@ -359,52 +359,6 @@ int find_margin(vector *v, int w) {
   }
   i= j; while (p[i] == t) i++;
   return (j + i) / 2;
-}
-
-image *autocrop(image *im, int width, int height) {
-  int depth= im->depth;
-  if (depth != 1) error("autocrop: invalid depth");
-  int w= im->width;
-  int h= im->height;
-  vector *vx= make_vector(w); // x-histogram
-  vx->len= vx->size;
-  vector *vy= make_vector(h); // y-histogram
-  vy->len= vy->size;
-  int i, x1, x2, y1, y2;
-  gray *p, *end;
-  real *px, *py, t, t1;
-  int k= (MAXVAL + 1) /2;
-
-  // calc vx
-  for (i= 0; i < h - 1; i++, py++) {
-    p= im->chan[1] + i * w;
-    end= p + w - 1;
-    px= vx->data;
-    for (; p < end; p++, px++) {
-      if (*p / k != *(p + w) / k) (*px)++;
-    }
-  }
-
-  x1= find_margin(vx, width);
-  x2= x1 + width - 1;
-
-  // calc vy
-  py= vy->data;
-  for (i= 0; i < h - 1; i++, py++) {
-    p= im->chan[1] + i * w + x1;
-    end= p + width - 1;
-    for (; p < end; p++, px++) {
-      if (*p / k != *(p + 1) / k) (*py)++;
-    }
-  }
-
-  y1= find_margin(vy, height);
-  y2= y1 + height - 1;
-
-  destroy_vector(vx);
-  destroy_vector(vy);
-
-  return crop(im, x1, y1, x2, y2);
 }
 
 // vim: sw=2 ts=2 sts=2 expandtab:

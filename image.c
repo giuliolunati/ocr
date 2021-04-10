@@ -165,7 +165,7 @@ image *image_read_pnm(FILE *file) {
     ps= buf;
     for (x= 0; x < width; x++) {
       for (z= 0; z < depth; z++, ps++) {
-        *p[z]= ((int)*ps - 128) * KP;
+        *p[z]= (*ps - 0.5) / 255.0;
         p[z]++;
       }
     }
@@ -217,9 +217,10 @@ void image_write_pnm(image *im, FILE *file) {
     for (x= 0; x < width; x++) {
       for (z= 0; z < depth; z++, pt++) {
         v= *p[z]; p[z]++;
-        if (v < -MAXVAL) *pt= 0;
-        else if (v > MAXVAL) *pt= 255;
-        else *pt= v / KP + 128;
+        v= (v * 255) + 0.5;
+        if (v < 0) *pt= 0;
+        else if (v > 255) *pt= 255;
+        else *pt= v;
       }
     }
     if (width > fwrite(buf, depth, width, file)) error("Error writing file.");

@@ -11,7 +11,7 @@ void draw_grid(image *im, int stepx, int stepy) {
   int h= im->height;
   int x, y, z;
   gray *p;
-  for (z= 0; z < 4; z++) {
+  for (z= 1; z < 4; z++) {
     if (! im->chan[z]) continue;
     for (y= 0; y < h; y++) {
       p= im->chan[z] + y * w;
@@ -21,7 +21,7 @@ void draw_grid(image *im, int stepx, int stepy) {
           x % sbigx == 0 ||
           (x % stepx == 0 && (y + step4y) % stepy < step2y) ||
           (y % stepy == 0 && (x + step4x) % stepx < step2x)
-        ) {if (*p < 0) *p= 1; else *p= -1;}
+        ) {if (*p < 0.5) *p= 1; else *p= 0;}
       }
     }
   }
@@ -31,7 +31,7 @@ void poke(image *im, int x, int y, int z, gray v) {
   if (x < 0 || x > im->width) error("poke: invalid x");
   if (y < 0 || y > im->height) error("poke: invalid y");
   if (! im->chan[z]) error("poke: invalid chan");
-  *(im->chan[z] + im->width * y + x)= MAXVAL * v;
+  *(im->chan[z] + im->width * y + x)= v;
 }
 
 
