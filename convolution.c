@@ -337,55 +337,120 @@ float image_poisson_step(
     int steps, float maxerr
   ) {
   int z, n, x, y, dx;
-  int depth= target->depth, opaque= depth % 2;
+  int depth= target->depth;
   int w= target->width, h= target->height;
   assert(guess->depth == depth);
   assert(guess->width == w);
   assert(guess->height == h);
-  gray *pg, *pt, *pa= 0;
+  gray *mask, *pg, *pt, *pm;
+  mask= guess->SEL;
   double t, err1, err= 0;
   unsigned long int count= 0;
   for (z= 1; z < 4; z++) {
     if (! target->chan[z]) continue;
     for (n=0; n!= steps-1; n++) {
       fprintf(stderr, "%c", n%10+48);
-      if (n%16 < 2) {
-        if (n%16 == 0) { err1= count= 0; } 
+      if (n%16 == 0) {
+        n++; // preserve parity 
+        err1= count= 0;
+        pg= guess->chan[z] + 1;
+        pt= target->chan[z] + 1;
+        pm= mask + 1;
+        for (x= 1 ; x < w-1; x++,pt++,pg++,pm++) {
+          if (mask && *pm < 1) continue;
+          t= (
+            *(pg-1) + *(pg+1) - (*pt-0.5)/k
+          ) / 2 - *pg;
+          err1 += t*t;
+          count ++;
+        }
         for (y= 1; y < h-1; y++) {
-          dx= (n+y)%2;
-          pg= guess->chan[z] + y*w + 1 + dx;
-          pt= target->chan[z] + y*w + 1 + dx;
-          if (! opaque) pa= target->chan[3] + y*w + 1 + dx;
-          for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
-            if (! opaque && *pa <=0) continue;
-            t= ( (*pt-0.5)/k
-              - *(pg-1) - *(pg+1) - *(pg-w) - *(pg+w)
-            ) / -4 - *pg;
+          pg= guess->chan[z] + y*w;
+          pt= target->chan[z] + y*w;
+          pm= mask + y*w;
+          if (!mask || *pm >= 1) {
+            t= (
+              *(pg-w) + *(pg+w) - (*pt-0.5)/k
+            ) / 2 - *pg;
+            err1 += t*t;
+            count ++;
+          }
+          pg++; pt++; pm++;
+          for (x= 1 ; x < w-1; x++,pt++,pg++,pm++) {
+            if (mask && *pm < 1) continue;
+            t= (
+              *(pg-1) + *(pg+1) + *(pg-w) + *(pg+w) - (*pt-0.5)/k
+            ) / 4 - *pg;
+            err1 += t*t;
+            count ++;
+          }
+          if (!mask || *pm >= 1) {
+            t= (
+              *(pg-w) + *(pg+w) - (*pt-0.5)/k
+            ) / 2 - *pg;
             err1 += t*t;
             count ++;
           }
         }
-        fprintf(stderr, "");
-        if (n%16 == 1) {
-          if (count == 0) return -1;
-          err1 /= count;
-          err1= sqrt(err1);
-          if (err1 <= maxerr) break;
+        pg= guess->chan[z] + w*(h-1) + 1;
+        pt= target->chan[z] + w*(h-1) + 1;
+        pm= mask + w*(h-1) + 1;
+        for (x= 1; x < w-1; x++,pt++,pg++,pm++) {
+          if (mask && *pm < 1) continue;
+          t= (
+            *(pg-1) + *(pg+1) - (*pt-0.5)/k
+          ) / 2 - *pg;
+          err1 += t*t;
+          count ++;
         }
+        fprintf(stderr, "");
+        if (count == 0) error("===");
+        err1 /= count;
+        err1= sqrt(err1);
+        if (err1 <= maxerr) break;
       } else {
+        dx= n%2;
+        pg= guess->chan[z] + 1+dx;
+        pt= target->chan[z] + 1+dx;
+        pm= mask + 1+dx;
+        for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pm+=2) {
+          if (mask && *pm < 1) continue;
+          *pg= (
+            *(pg-1) + *(pg+1) - (*pt-0.5)/k
+          ) / 2;
+        }
         for (y= 1; y < h-1; y++) {
           dx= (n+y)%2;
-          pg= guess->chan[z] + y*w + 1 + dx;
-          pt= target->chan[z] + y*w + 1 + dx;
-          if (! opaque) pa= target->chan[3] + y*w + 1 + dx;
-          for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pa+=2) {
-            if (! opaque && *pa <=0) continue;
-            // k(p...-4pg) = pt-0.5
-            // p... - (pt-0.5)/k = 4pg
+          pg= guess->chan[z] + y*w;
+          pt= target->chan[z] + y*w;
+          pm= mask + y*w;
+          if (dx && (!mask || *pm >= 1)) {
+            *pg= (
+              *(pg-w) + *(pg+w) - (*pt-0.5)/k
+            ) / 2;
+          }
+          pg += 1+dx; pt += 1+dx; pm += 1+dx;
+          for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pm+=2) {
+            if (mask && *pm < 1) continue;
             *pg= (
               *(pg-1) + *(pg+1) + *(pg-w) + *(pg+w) - (*pt-0.5)/k
             ) / 4;
-          } 
+          }
+          if (x == w-1 && (!mask || *pm >= 1)) {
+            *pg= (
+              *(pg-w) + *(pg+w) - (*pt-0.5)/k
+            ) / 2;
+          }
+        }
+        dx= (n+h-1)%2;
+        pg= guess->chan[z] + w*(h-1) + 1+dx;
+        pt= target->chan[z] + w*(h-1) + 1+dx;
+        pm= mask + w*(h-1) + 1+dx;
+        for (x= 1+dx ; x < w-1; x+=2,pt+=2,pg+=2,pm+=2) {
+          if (mask && *pm < 1) continue;
+          *pg= (
+            *(pg-1) + *(pg+1) - (*pt-0.5)/k
+          ) / 2;
         }
         fprintf(stderr, "");
       }
@@ -400,9 +465,11 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
   int z, n, x, y;
   assert(guess);
   int w= target->width, h= target->height;
+  long int i, l= w*h;
   if (guess->width != w || guess->height != h)
   { error("image_poisson: size mismatch."); }
-  gray *pt, *pg;
+  gray *mask, *pt, *pg, *pm;
+  mask= guess->SEL;
   real err, mean;
   // inner
   float recur= log2(MAX(w,h)/8.0);
@@ -419,12 +486,22 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
       if (! target->chan[z]) continue;
       pt= target->chan[z];
       pg= ta1->chan[z];
-      for (y= 0; y < h; y++)
-      for (x= 0; x < w; x++,pt++,pg++) *pg= *pt - *pg + 0.5;
+      if (mask) {
+        pm= mask;
+        for (i= 0; i < l; i++,pt++,pg++,pm++) {
+          if (*pm >= 1) *pg= *pt - *pg + 0.5;
+          else *pg= 0.5;
+        }
+      } else {
+        for (i= 0; i < l; i++,pt++,pg++) *pg= *pt - *pg + 0.5;
+      }
     }
     ta2= image_half(ta1);
     gu2= image_half(guess);
+    pt= gu2->SEL;
+    gu2->SEL= NULL;
     image_sel_fill(gu2, NAN, 0.5, 0.5, 0.5);
+    gu2->SEL= pt;
     image_poisson(
         ta2,
         gu2,
@@ -436,10 +513,16 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
     for (z= 1; z < 4; z++) {
       if (! target->chan[z]) continue;
       // guess += gu1
-      for (y= 1; y < h-1; y++) {
-        pt= gu1->chan[z] + y*w + 1;
-        pg= guess->chan[z] + y*w + 1;
-        for (x= 1; x < w-1; x++,pt++,pg++) *pg += *pt - 0.5;
+      for (y= 0; y < h; y++) {
+        pt= gu1->chan[z] + y*w;
+        pg= guess->chan[z] + y*w;
+        pm= mask + y*w;
+        if (mask) for (x= 0; x < w; x++,pt++,pg++,pm++) {
+          if (*pm >= 1) *pg += *pt - 0.5;
+        }
+        else for (x= 0; x < w; x++,pt++,pg++) {
+          *pg += *pt - 0.5;
+        }
       }
     }
     image_destroy(ta2);
@@ -448,6 +531,7 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
     image_destroy(gu1);
     fprintf(stderr, " ");
   }
+  // if (w > 256) image_write(guess, "tmp.png");
   err= image_poisson_step(
       target, guess,
       k,
