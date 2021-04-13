@@ -6,7 +6,7 @@ int main(int argc, char **args) {
   int y= im->height * 0.2;
   int w= im->width * 0.6;
   int h= im->height * 0.6;
-  image_sel_make(im, 0.5);
+  image_make_sel(im, 0.5);
   image_sel_rect(im, 1, x, y, w, h);
   image_alpha_to_sel(im);
   image_write(im, args[2]);

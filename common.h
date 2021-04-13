@@ -68,6 +68,7 @@ void poke(image *im, int x, int y, int chan, gray v);
 extern real default_ex;
 image *image_make(int width, int height, int depth);
 void image_destroy(image *im);
+image *clone_image(image *im, int width, int height);
 image *copy_image(image *im);
 image *image_read(char *fname);
 void image_write(image *im, char *fname);
@@ -99,7 +100,7 @@ image *image_redouble(image *im, int oddx, int oddy);
 
 // select.c
 void image_alpha_to_sel(image *im);
-void image_sel_make(image *im, gray v);
+void image_make_sel(image *im, gray v);
 void image_sel_rect(image *im, real mode, int x0, int y0, int w, int h);
 void image_sel_fill(image *im, real v0, real v1, real v2, real v3);
 

@@ -43,17 +43,31 @@ void image_destroy(image *im) {
   free(im);
 }
 
-image *copy_image(image *im) {
-  image *om= malloc(sizeof(*om));
-  uint len= im->width * im->height * sizeof(gray);
-  memcpy(om, im, sizeof(*om));
-  gray *pi, *po;
+image *clone_image(image *im, int width, int height) {
   int i;
-  for (i=0; i<4; i++) {
+  gray *p;
+  image *om= malloc(sizeof(*om));
+  memcpy(om, im, sizeof(*om));
+  om->width= width;
+  om->height= height;
+  uint len= width * height * sizeof(gray);
+  for (i=0; i<5; i++) {
+    p= im->chan[i];
+    if (! p) continue;
+    om->chan[i]= malloc(len);
+  }
+  return om;
+}
+
+image *copy_image(image *im) {
+  int i;
+  gray *pi;
+  image *om= clone_image(im, im->width, im->height);
+  uint len= im->width * im->height * sizeof(gray);
+  for (i=0; i<5; i++) {
     pi= im->chan[i];
     if (! pi) continue;
-    om->chan[i]= po = malloc(len);
-    memcpy(po, pi, len);
+    memcpy(om->chan[i], pi, len);
   }
   return om;
 }

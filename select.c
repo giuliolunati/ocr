@@ -23,7 +23,7 @@ void image_alpha_to_sel(image *im) {
   }
 }
 
-void image_sel_make(image *im, gray v) {
+void image_make_sel(image *im, gray v) {
   assert(im);
   int wid= im->width;
   int hei= im->height;
@@ -32,7 +32,7 @@ void image_sel_make(image *im, gray v) {
   gray *p, *end;
   if (! im->SEL) {
     im->SEL= malloc(sizeof(im->SEL) * im->width * im->height);
-    if (! im->SEL) error("image_sel_make: out of memory");
+    if (! im->SEL) error("image_make_sel: out of memory");
   }
   for (p= im->SEL, end= p + wid*hei; p < end; p++) *p= v;
 }
@@ -44,7 +44,7 @@ void image_sel_rect(image *im, real v,
     int x0, int y0, int w, int h // origin, size
   ) {
   assert(im);
-  if (! im->SEL) image_sel_make(im,0);
+  if (! im->SEL) image_make_sel(im,0);
   int wid= im->width;
   int hei= im->height;
   if (w < 0) {w= -w; x0 -= w;}
