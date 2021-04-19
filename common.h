@@ -101,7 +101,7 @@ image *image_redouble(image *im, int oddx, int oddy);
 // select.c
 void image_alpha_to_sel(image *im);
 void image_make_sel(image *im, gray v);
-void image_sel_rect(image *im, real mode, int x0, int y0, int w, int h);
+void image_sel_rect(image *im, real mode, int x0, int y0, int x1, int y1);
 void image_sel_fill(image *im, real v0, real v1, real v2, real v3);
 
 // transform.c

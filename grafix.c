@@ -336,15 +336,17 @@ int main(int argc, char **args) {
     else
     if (ARG_IS("quit")) exit(0);
     else
-    if (ARG_IS("rectangle")) { // VAL X Y W H
+    if (ARG_IS("rectangle")) { // VAL X0 Y0 X1 Y1
       img= im(1);
       for (i= 0; i < 5; i++) {
         arg++;
         c= type(*arg); 
         if (! c) error("rectangle: missing parameter");
-        if (c == 'i') t[i]= atof(*arg);
-        else if (c == 'd') {
-          t[i]= atof(*arg);
+
+        t[i]= atof(*arg);
+        if (c == 'i') ;
+        else
+        if (c == 'd') {
           if (i == 0) ;
           else if (i % 2) t[i] *= img->width;
           else t[i] *= img->height;

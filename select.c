@@ -41,17 +41,24 @@ void image_sel_rect(image *im, real v,
     // v < 0: outside= -v
     // v = -0.0: outside= 0 (intersect)
     // v = 0.0: inside= 0 (subtract)
-    int x0, int y0, int w, int h // origin, size
+    int x0, int y0, int x1, int y1 // corners
+    // negative => from bottom/right
   ) {
   assert(im);
   if (! im->SEL) image_make_sel(im,0);
   int wid= im->width;
   int hei= im->height;
-  if (w < 0) {w= -w; x0 -= w;}
-  if (h < 0) {h= -h; y0 -= h;}
-  x0= MAX(x0, 0); x0= MIN(x0, wid);
-  y0= MAX(y0, 0); y0= MIN(y0, hei);
-  w= MIN(w, wid-x0); h= MIN(h, hei-y0);
+  if (x0 < 0) x0 += wid;
+  if (x1 <= 0) x1 += wid;
+  if (y0 < 0) y0 += hei;
+  if (y1 <= 0) y1 += hei;
+  if (
+    x0 < 0 || x0 > wid ||
+    x1 < 0 || x1 > wid ||
+    y0 < 0 || y0 > hei ||
+    y1 < 0 || y1 > hei ||
+    x1 < x0 || y1 < y0
+  ) error("image_sel_rect: invalid corners");
   gray *p, *end;
   int x, y;
 
@@ -61,7 +68,7 @@ void image_sel_rect(image *im, real v,
       p < end; p++
     ) *p= -v;
   }
-  for (y= y0; y < y0 + h; y++) {
+  for (y= y0; y < y1; y++) {
     if (signbit(v)) {
       for (
         p= im->SEL + wid*y, end= p + x0;
@@ -70,13 +77,13 @@ void image_sel_rect(image *im, real v,
     }
     if (! signbit(v)) {
       for (
-        p= im->SEL + wid*y + x0, end= p+w;
+        p= im->SEL + wid*y + x0, end= p+x1-x0;
         p < end; p++
       ) *p = v;
     }
     if (signbit(v)) {
       for (
-        p= im->SEL + wid*y + x0 + w,
+        p= im->SEL + wid*y + x1,
         end= im->SEL + wid*(y+1);
         p < end; p++
       ) *p = -v;
@@ -84,7 +91,7 @@ void image_sel_rect(image *im, real v,
   }
   if (signbit(v)) {
     for (
-      p= im->SEL + wid*(y0+h),
+      p= im->SEL + wid*y1,
       end= im->SEL + wid*hei;
       p < end; p++
     ) *p= -v;
