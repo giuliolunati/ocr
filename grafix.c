@@ -13,11 +13,12 @@ if (! topic) {
 "=================== COMMANDS: ==================\n\
 HELP: \n\
   = -h, --help ------------------ this summary\n\
-STACK, CONTROL:\n\
+STACK:\n\
   = quit ------------------- quit w/out output\n\
   - pop ------------------------- discard item\n\
   = swap --------------- swap 1st and 2nd item\n\
   + unpop --------------------------- undo pop\n\
+CONTROL:\n\
   = odd ------ the following apply to odd page\n\
   = even ---- the following apply to even page\n\
   = all ------------------ end 'even' or 'odd'\n\
@@ -25,6 +26,10 @@ INPUT, OUTPUT:\n\
   + - ------------------ load image from STDIN\n\
   + FILENAME.EXT -------- load image from file\n\
   - w FILENAME/- -------- write to file/stdout\n\
+CREATE:\n\
+  + copy -------------------------------- copy\n\
+  + image DEPTH WIDTH HEIGHT ------- new image\n\
+  + clone DEPTH WIDTH HEIGHT ----- clone image\n\
 SCALE, TRANSFORM:\n\
   ~ cropx LEFT RIGHT ------- crop horizontally\n\
   ~ cropy TOP BOTTOM --------- crop vertically\n\
@@ -183,6 +188,17 @@ int main(int argc, char **args) {
         contrast_image(im(1), x, x);
       }
       else
+      if (ARG_HEAD("clone")) { // DEPTH WIDTH HEIGHT
+        for (i= 0; i < 3; i++) {
+          arg++;
+          c= type(*arg); 
+          if (! c) error("image: missing parameter");
+          if (c != 'i') error("image: expected int");
+          t[i]= atof(*arg);
+        }
+        push(clone_image(im(1),t[0],t[1],t[2]));
+      }
+      else
       if (ARG_HEAD("con")) { // auto | BLACK WHITE
         if (! *(++arg)) error("contrast: missing BLACK parameter");
         if (ARG_EQ("auto")) {
@@ -334,6 +350,17 @@ int main(int argc, char **args) {
         i= atoi(*arg);
         v= histogram_of_image(im(1), 0);
         push(v);
+      }
+      else
+      if (ARG_HEAD("image")) { // DEPTH WIDTH HEIGHT
+        for (i= 0; i < 3; i++) {
+          arg++;
+          c= type(*arg); 
+          if (! c) error("image: missing parameter");
+          if (c != 'i') error("image: expected int");
+          t[i]= atof(*arg);
+        }
+        push(image_make(t[0],t[1],t[2]));
       }
       else
       if (ARG_HEAD("lapl")) {

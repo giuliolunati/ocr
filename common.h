@@ -66,9 +66,9 @@ void poke(image *im, int x, int y, int chan, gray v);
 
 // image.c
 extern real default_ex;
-image *image_make(int width, int height, int depth);
+image *image_make(int depth, int width, int height);
 void image_destroy(image *im);
-image *clone_image(image *im, int width, int height);
+image *clone_image(image *im, int depth, int width, int height);
 image *copy_image(image *im);
 image *image_read(char *fname);
 void image_write(image *im, char *fname);

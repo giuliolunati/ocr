@@ -23,7 +23,7 @@ image *image_background(image *im) {
   d= 0.333 / d;
   d= exp(-d);
   int x, y, z, h= im->height, w= im->width;
-  image *om= image_make(w, h, im->depth);
+  image *om= image_make(im->depth, w, h);
   om->ex= im->ex;
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));

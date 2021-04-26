@@ -7,7 +7,7 @@
 
 real default_ex= 25;
 
-image *image_make(int width, int height, int depth) {
+image *image_make(int depth, int width, int height) {
   assert(1 <= depth && depth <= 4);
   if (height < 1 || width < 1) error("image_make: size <= 0");
   int i;
@@ -43,31 +43,37 @@ void image_destroy(image *im) {
   free(im);
 }
 
-image *clone_image(image *im, int width, int height) {
-  int i;
+image *clone_image(image *im, int depth, int width, int height) {
+  if (depth < 1) depth= im->depth;
+  if (width < 1) width= im->width;
+  if (height < 1) height= im->height;
+  int z;
   gray *p;
+  if (depth > 4) error("clone_image: invalid depth");
   image *om= malloc(sizeof(*om));
+  if (! om) error("clone_image: out of memory");
   memcpy(om, im, sizeof(*om));
+  om->depth= depth;
   om->width= width;
   om->height= height;
   uint len= width * height * sizeof(gray);
-  for (i=0; i<5; i++) {
-    p= im->chan[i];
-    if (! p) continue;
-    om->chan[i]= malloc(len);
+  for (z= depth%2; z < depth+depth%2; z++) {
+    p= malloc(len);
+    if (! p) error("clone_image: out of memory");
+    om->chan[z]= p;
   }
   return om;
 }
 
 image *copy_image(image *im) {
-  int i;
+  int z;
   gray *pi;
-  image *om= clone_image(im, im->width, im->height);
+  image *om= clone_image(im, 0, 0, 0);
   uint len= im->width * im->height * sizeof(gray);
-  for (i=0; i<5; i++) {
-    pi= im->chan[i];
+  for (z=0; z<5; z++) {
+    pi= im->chan[z];
     if (! pi) continue;
-    memcpy(om->chan[i], pi, len);
+    memcpy(om->chan[z], pi, len);
   }
   return om;
 }
@@ -160,7 +166,7 @@ image *image_read_pnm(FILE *file) {
   }
   assert(width > 0 && height > 0);
   assert(1 <= depth && depth <= 4);
-  im= image_make(width, height, depth);
+  im= image_make(depth, width, height);
   int opaque= depth % 2;
   buf= malloc(width * depth);
   gray *p[4];

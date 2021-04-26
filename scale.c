@@ -9,7 +9,7 @@ image *image_half_x(image *im) {
   int wo, x, y, z;
   gray *pi, *po;
   wo= (wi + wi%2) / 2; 
-  om= clone_image(im, wo, h);
+  om= clone_image(im, 0, wo, h);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     if (wi % 2) { // odd
@@ -59,7 +59,7 @@ image *image_half_y(image *im) {
   real a, b, c, s;
   gray *pi, *po;
   ho= (hi + hi%2) / 2; 
-  om= clone_image(im, w, ho);
+  om= clone_image(im, 0, w, ho);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     if (hi % 2) { // odd
@@ -127,7 +127,7 @@ image *image_redouble_x(image *im, int odd) {
   real a, b, c, d, s;
   gray *pi, *po;
   wo= wi*2 - odd; 
-  om= clone_image(im, wo, h);
+  om= clone_image(im, 0, wo, h);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     pi= im->chan[z];
@@ -208,7 +208,7 @@ image *image_redouble_y(image *im, int odd) {
   real a, b, c, d, s;
   gray *pi, *po;
   ho= hi*2 - odd;
-  om= clone_image(im, w, ho);
+  om= clone_image(im, 0, w, ho);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
     po= om->chan[z];
@@ -297,7 +297,7 @@ image *image_double(image *im, real k /*sharpness*/) {
   int depth= im->depth;
   int w= im->width, h= im->height;
   int x, y, z;
-  image *om= clone_image(im, 2*w, 2*h);
+  image *om= clone_image(im, 0, 2*w, 2*h);
   om->ex= 2 * im->ex;
   om->pag= im->pag;
   gray *i1, *i2, *i3, *i4, *o;

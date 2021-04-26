@@ -189,7 +189,7 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
   int n, x, y, z;
   int w= im->width, h= im->height;
 
-  om= image_make(w, h, im->depth);
+  om= image_make(im->depth, w, h);
   gray *pi, *po;
   real err, mean;
   // border
