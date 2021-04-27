@@ -3,7 +3,6 @@
 image *image_half_x(image *im) {
   int wi= im->width;
   int h= im->height;
-  int depth= im->depth;
   real a, b, c, s;
   image *om;
   int wo, x, y, z;
@@ -51,7 +50,6 @@ image *image_half_x(image *im) {
 }
 
 image *image_half_y(image *im) {
-  int depth= im->depth;
   int w= im->width;
   int hi= im->height;
   image *om;
@@ -117,7 +115,6 @@ image *image_half(image *im) {
 }
 
 image *image_redouble_x(image *im, int odd) {
-  int depth= im->depth;
   odd= odd%2;
   int wi= im->width;
   assert(wi >= 3);
@@ -198,7 +195,6 @@ image *image_redouble_x(image *im, int odd) {
 }
 
 image *image_redouble_y(image *im, int odd) {
-  int depth= im->depth;
   odd= odd%2;
   int w= im->width;
   int hi= im->height;
@@ -294,7 +290,6 @@ image *image_redouble(image *im, int oddx, int oddy) {
 }
 
 image *image_double(image *im, real k /*sharpness*/) {
-  int depth= im->depth;
   int w= im->width, h= im->height;
   int x, y, z;
   image *om= clone_image(im, 0, 2*w, 2*h);

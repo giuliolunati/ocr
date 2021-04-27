@@ -20,6 +20,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+
 // TYPES //
 
 typedef struct { // image
@@ -27,7 +28,6 @@ typedef struct { // image
   gray *chan[5];
   uint width;
   uint height;
-  int depth;
   real ex; // height of x in pixels
   uint pag;
   real black;

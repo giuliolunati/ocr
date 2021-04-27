@@ -98,7 +98,7 @@ void splity_image(void **out1, void **out2, image *im, float y) {
 }
 
 image *crop(image *im, int x1, int y1, int x2, int y2) {
-  int z, depth= im->depth;
+  int z;
   int w= im->width;
   int h= im->height;
   int w1= x2 - x1;
@@ -124,8 +124,6 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
 }
 
 void skew(image* im, real angle) {
-  int depth= im->depth;
-  if (depth != 1) error("skew: invalid depth");
   angle *= M_PI /180;
   if (fabs(angle) > 45) error("skew: angle must be between -45 and 45.");
   real b= sin(angle);
@@ -136,8 +134,6 @@ void skew(image* im, real angle) {
 }
 
 real skew_score(int d, image *test, vector *v) {
-  int depth= test->depth;
-  if (depth != 1) error("skew_score: invalid depth");
   int i, j, x, y;
   int  w= test->width, h= test->height;
   real t, *p, *end;
@@ -159,8 +155,6 @@ real skew_score(int d, image *test, vector *v) {
 }
 
 real detect_skew(image *im) {
-  int depth= im->depth;
-  if (depth != 1) error("detect_skew: invalid depth");
   int i, y, w1, w= im->width;
   int h= im->height;
   real t, s= 0;

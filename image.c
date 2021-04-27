@@ -7,6 +7,20 @@
 
 real default_ex= 25;
 
+int image_depth(image *im) {
+  int depth;
+  if (! im->chan[1]) error("image_depth: missing chan[1]");
+  if (im->chan[2]) {
+    if (! im->chan[3]) error("image_depth: missing chan[3]");
+    depth= 3;
+  } else {
+    if (im->chan[3]) error("image_depth: missing chan[2]");
+    depth= 1;
+  }
+  if (im->chan[0]) depth ++;
+  return depth;
+}
+
 image *image_make(int depth, int width, int height) {
   assert(1 <= depth && depth <= 4);
   if (height < 1 || width < 1) error("image_make: size <= 0");
@@ -25,7 +39,6 @@ image *image_make(int depth, int width, int height) {
   im->magic= 'I';
   im->width= width;
   im->height= height;
-  im->depth= depth;
   im->ex= default_ex;
   im->pag= 0;
   im->black= im->graythr= im->white= -1;
@@ -44,7 +57,7 @@ void image_destroy(image *im) {
 }
 
 image *clone_image(image *im, int depth, int width, int height) {
-  if (depth < 1) depth= im->depth;
+  if (depth < 1) depth= image_depth(im);
   if (width < 1) width= im->width;
   if (height < 1) height= im->height;
   int z;
@@ -53,7 +66,6 @@ image *clone_image(image *im, int depth, int width, int height) {
   image *om= malloc(sizeof(*om));
   if (! om) error("clone_image: out of memory");
   memcpy(om, im, sizeof(*om));
-  om->depth= depth;
   om->width= width;
   om->height= height;
   uint len= width * height * sizeof(gray);
@@ -200,7 +212,7 @@ void image_write_pnm(image *im, FILE *file) {
   uchar *buf, *pt;
   float v;
 
-  int z, depth= im->depth, opaque= depth % 2;
+  int z, depth= image_depth(im), opaque= depth % 2;
   assert(file);
   if (opaque) {
     if (depth == 1) fprintf(file, "P5\n");

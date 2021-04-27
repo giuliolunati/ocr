@@ -23,7 +23,7 @@ image *image_background(image *im) {
   d= 0.333 / d;
   d= exp(-d);
   int x, y, z, h= im->height, w= im->width;
-  image *om= image_make(im->depth, w, h);
+  image *om= clone_image(im, 0, 0, 0);
   om->ex= im->ex;
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
@@ -109,8 +109,7 @@ vector *histogram_of_image(image *im, int chan) {
 void contrast_image(image *im, real black, real white) {
   gray *p;
   real m, q;
-  int z, depth= im->depth;
-  assert(1 <= depth && depth <= 4);
+  int z;
   unsigned long int i, l= im->width * im->height;
   if (white == black) {
     for (z= 1; z < 4; z++) {
@@ -157,9 +156,7 @@ void contrast_image(image *im, real black, real white) {
 void normalize_image(image *im, real strength) {
   vector *d, *v= histogram_of_image(im, 1);
   real *p= v->data;
-  int i, b, w, depth= im->depth;
-
-  if (depth != 1) error("normalize_image: invalid depth");
+  int i, b, w;
 
   for (i= 0; i < v->len; i++, p++) {
     *p= log(1 + *p);
@@ -210,8 +207,6 @@ void normalize_image(image *im, real strength) {
 }
 
 void mean_y(image *im, uint d) {
-  int depth= im->depth;
-  if (depth != 1) error("mean_y: invalid depth");
   uint w= im->width;
   uint h= im->height;
   real *v= calloc(w * (d + 1), sizeof(*v));
@@ -255,8 +250,6 @@ void darker_image(image *a, image *b) {
 }
 
 void calc_statistics(image *im, int verbose) {
-  int depth= im->depth;
-  if (depth != 1) error(": invalid depth");
   // threshold histogram
   vector *thr= make_vector(256);
   thr->len= thr->size;
@@ -335,11 +328,9 @@ void calc_statistics(image *im, int verbose) {
 void diff_image(image *a, image *b) {
   int h= a->height;
   int w= a->width;
-  int depth= a->depth;
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("diff_image: size mismatch.");
-  if (b->depth % 2 != depth % 2) error("diff_image: depth mismatch.");
   for (z= 1; z < 4; z++) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
@@ -356,7 +347,6 @@ void patch_image(image *a, image *b) {
   int i, z;
   gray *pa, *pb;
   if (b->height != h || b->width != w) error("patch_image: size mismatch.");
-  if (b->depth % 2 != a->depth % 2) error("diff_image: depth mismatch.");
   for (z= 1; z < 4; z++) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
@@ -370,7 +360,6 @@ void patch_image(image *a, image *b) {
 void image_quantize(image *im, float steps) {
   int h= im->height;
   int w= im->width;
-  int depth= im->depth;
   gray *p, *end= p;
   float v;
   int i, z;

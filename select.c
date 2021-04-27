@@ -4,10 +4,8 @@ void image_alpha_to_sel(image *im) {
   assert(im);
   long int len= im->width * im->height;
   if (! im->ALPHA) {
-    assert(im->depth % 2);
     im->ALPHA= malloc(sizeof(gray) * len);
     if (! im->ALPHA) error("image_alpha_to_sel: out of memory");
-    im->depth ++;
   }
   gray *a, *s, *z;
   if (im->SEL) {

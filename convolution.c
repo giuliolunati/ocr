@@ -189,7 +189,7 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
   int n, x, y, z;
   int w= im->width, h= im->height;
 
-  om= image_make(im->depth, w, h);
+  om= clone_image(im, 0, 0, 0);
   gray *pi, *po;
   real err, mean;
   // border
@@ -337,9 +337,7 @@ float image_poisson_step(
     int steps, float maxerr
   ) {
   int z, n, x, y, dx;
-  int depth= target->depth;
   int w= target->width, h= target->height;
-  assert(guess->depth == depth);
   assert(guess->width == w);
   assert(guess->height == h);
   gray *mask, *pg, *pt, *pm;
