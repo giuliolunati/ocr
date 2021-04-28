@@ -54,6 +54,9 @@ SELECT, DRAW:\n\
   = rect* VAL X Y X' Y' ----- select rectangle\n\
   = fill A R G B -------------- fill selection\n\
   = grid STEP ----------- draw grid over image\n\
+COLORSPACE:\n\
+  = alpha ------------------ add alpha channel\n\
+  = opaque -------------- remove alpha channel\n\
 FILTERS:\n\
   = lapl* ----------------- negative laplacian\n\
   - pois* TOL ------------------ solve poisson\n\
@@ -170,6 +173,8 @@ int main(int argc, char **args) {
         help(args, *(++arg));
       }
       if (ARG_EQ("all")); // see odd, even
+      else
+      if (ARG_EQ("alpha")) add_channel(im(1), 0);
       else
       if (ARG_EQ("bg")) { // FLOAT
         push(image_background(im(1)));
@@ -378,6 +383,12 @@ int main(int argc, char **args) {
           while (*arg && ! ARG_EQ("even") && ! ARG_EQ("all")) arg++;
         }
         arg--;
+      }
+      else
+      if (ARG_EQ("opaque")) {
+        img= im(1);
+        if (img->ALPHA) free(img->ALPHA);
+        img->ALPHA= NULL;
       }
       else
       if (ARG_HEAD("pag")) { // INT

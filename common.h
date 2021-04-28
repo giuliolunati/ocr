@@ -72,6 +72,7 @@ image *clone_image(image *im, int depth, int width, int height);
 image *copy_image(image *im);
 image *image_read(char *fname);
 void image_write(image *im, char *fname);
+void add_channel(image *im, int n);
 
 // misc.c
 void error(const char *msg);

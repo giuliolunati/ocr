@@ -336,4 +336,12 @@ void image_write(image *im, char *fname) {
     fclose(f);
   }
 }
+
+void add_channel(image *im, int n) {
+  if (im->chan[n]) return;
+  gray *p= malloc(sizeof(gray) * im->width * im->height);
+  if (! p) error("ensure_chan: out of memory");
+  im->chan[n]= p;
+}
+
 // vim: set et sw=2:
