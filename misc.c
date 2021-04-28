@@ -374,8 +374,7 @@ void image_quantize(image *im, float steps) {
   }
 }
 
-void image_dither(image *im, int steps, int border) {
-  if (border) border= 1;
+void image_dither(image *im, int steps) {
   int h= im->height;
   int w= im->width;
   int z;
@@ -385,18 +384,18 @@ void image_dither(image *im, int steps, int border) {
   gray *p;
   for (z=0; z < 4; z++) {
     if (! im->chan[z]) continue;
-    for (y= border; y < h-border; y++) {
-      p= im->chan[z] + y*w + border;
-      for (x= border; x < w-border; x++,p++) {
+    for (y= 0; y < h; y++) {
+      p= im->chan[z] + y*w;
+      for (x= 0; x < w; x++,p++) {
         v= *p;
         *p= roundf((*p-0.5) * steps) / steps + 0.5;
         v= (v-*p)/16;
-        if (x+1 < w-border) {
+        if (x+1 < w) {
           *(p+1) += 7*v;
-          if (y+1 < h-border) *(p+w+1) += v;
+          if (y+1 < h) *(p+w+1) += v;
         }
-        if (y+1 < h-border) {
-          if (x > border) *(p+w-1) += 3*v;
+        if (y+1 < h) {
+          if (x > 0) *(p+w-1) += 3*v;
           *(p+w) += 5*v;
         }
       }

@@ -46,7 +46,7 @@ LIGHT, COLOR:\n\
   = fix-bg -------------------- fix background\n\
   - div* -------------------- divide im2 / im1\n\
   = bin {auto | THRESHOLD} ---- to black&white\n\
-  = dither THR ------ dithering with threshold\n\
+  = dither N --------- dithering with N levels\n\
   = con* BLACK WHITE -------- enhance contrast\n\
   = norm* STRENGTH -------- normalize contrast\n\
   = darker FILENAMES... -- darker of all pixel\n\
@@ -275,10 +275,10 @@ int main(int argc, char **args) {
         pop();
       }
       else
-      if (ARG_EQ("dither")) { // FLOAT
-        if (! *(++arg)) error("double: missing THRESHOLD parameter");
-        x= atof(*arg);
-        image_dither(im(1), x, 1);
+      if (ARG_EQ("dither")) { // INT
+        if (! *(++arg)) error("double: missing N parameter");
+        i= atoi(*arg);
+        image_dither(im(1), i);
       }
       else
       if (ARG_HEAD("div")) {

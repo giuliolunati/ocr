@@ -88,7 +88,7 @@ void calc_statistics(image *im, int verbose);
 void diff_image(image *a, image *b);
 void patch_image(image *a, image *b);
 void image_quantize(image *im, float step);
-void image_dither(image *im, int step, int border);
+void image_dither(image *im, int step);
 
 // scale.c
 image *image_double(image *im, real k /* hardness */);
