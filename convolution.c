@@ -341,7 +341,7 @@ float image_poisson_step(
   assert(guess->width == w);
   assert(guess->height == h);
   gray *mask, *pg, *pt, *pm;
-  mask= guess->SEL;
+  mask= target->ALPHA;
   double t, err1, err= 0;
   unsigned long int count= 0;
   for (z= 1; z < 4; z++) {
@@ -467,7 +467,7 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
   if (guess->width != w || guess->height != h)
   { error("image_poisson: size mismatch."); }
   gray *mask, *pt, *pg, *pm;
-  mask= guess->SEL;
+  mask= target->ALPHA;
   real err, mean;
   // inner
   float recur= log2(MAX(w,h)/8.0);
@@ -494,7 +494,10 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
         for (i= 0; i < l; i++,pt++,pg++) *pg= *pt - *pg + 0.5;
       }
     }
+    if (ta1->ALPHA) free(ta1->ALPHA);
+    ta1->ALPHA= target->ALPHA;
     ta2= image_half(ta1);
+    ta1->ALPHA= NULL;
     gu2= image_half(guess);
     pt= gu2->SEL;
     gu2->SEL= NULL;
