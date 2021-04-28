@@ -97,12 +97,12 @@ char *read_next_token(FILE *file) {
   unsigned long int p0, p1;
   while (1) {
     p0= ftell(file);
-    fscanf(file, " ");
+    i= fscanf(file, " ");
     if (p0 < (p1= ftell(file))) continue;
-    fscanf(file, "#");
+    i= fscanf(file, "#");
     if (p0 < (p1= ftell(file))) {
       c= '#';
-      while (c != '\n') fscanf(file, "%c", &c);
+      while (c != '\n') i= fscanf(file, "%c", &c);
       continue;
     }
     break;
@@ -115,7 +115,7 @@ image *image_read_pnm(FILE *file) {
   int x, y, prec, magic, depth, height, width, binary;
   image *im;
   uchar *buf, *ps;
-  int z;
+  int z, i;
   char c, *tok;
 
   assert(file);
@@ -166,10 +166,10 @@ image *image_read_pnm(FILE *file) {
         if (EQ(tok, "RGB_ALPHA")) depth= 4;
         else error("image_read_pnm: unknown TUPLTYPE");
         c= '#';
-        while (c != '\n') fscanf(file, "%c", &c);
+        while (c != '\n') i= fscanf(file, "%c", &c);
       }
     }
-    fscanf(file, "%c", &c);
+    i= fscanf(file, "%c", &c);
     if (c != '\n') 
     { error("image_read_pnm: missing newline after ENDHDR"); }
   }
@@ -272,7 +272,7 @@ image *image_read(char *fname) {
   FILE *f;
   image *img;
   if (! fname) return image_read_pnm(stdin);
-  int l= strlen(fname);
+  int i, l= strlen(fname);
   char *ext= fname + l - 4;
   char *filter= NULL;
   unsigned char type;
@@ -282,7 +282,7 @@ image *image_read(char *fname) {
       f= fopen(fname, "rb");
       if (! f) error1("image_read: can't read file ", fname);
       fseek(f, 25, SEEK_SET);
-      fscanf(f, "%c", &type);
+      i= fscanf(f, "%c", &type);
       if (type & 4) filter= pngtopam;
       else filter= pngtopnm;
     }
