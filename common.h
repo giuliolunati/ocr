@@ -81,7 +81,6 @@ image *image_background(image *im);
 void divide_image(image *a, image *b);
 vector *histogram_of_image(image *im, int chan);
 void contrast_image(image *im, real black, real white);
-void normalize_image(image *im, real strength);
 void mean_y(image *im, uint d);
 void darker_image(image *a, image *b);
 void calc_statistics(image *im, int verbose);

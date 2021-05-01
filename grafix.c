@@ -48,7 +48,6 @@ LIGHT, COLOR:\n\
   = bin {auto | THRESHOLD} ---- to black&white\n\
   = dither N --------- dithering with N levels\n\
   = con* BLACK WHITE -------- enhance contrast\n\
-  = norm* STRENGTH -------- normalize contrast\n\
   = darker FILENAMES... -- darker of all pixel\n\
 SELECT, DRAW:\n\
   = rect* VAL X Y X' Y' ----- select rectangle\n\
@@ -189,7 +188,7 @@ int main(int argc, char **args) {
           x= im(1)->graythr;
         }
         else x= atof(*arg);
-        x < 1 || (x /= 255);
+        x > 1 || (x *= 255);
         contrast_image(im(1), x, x);
       }
       else
@@ -317,8 +316,8 @@ int main(int argc, char **args) {
         for (i= 0; i < 4; i++) {
           arg++;
           if (! *arg) error("fill: missing parameter");
-          if (type(*arg) == 'i') t[i]= atof(*arg) / 255;
-          else if (type(*arg) == 'd') t[i]= atof(*arg);
+          if (type(*arg) == 'i') t[i]= atoi(*arg);
+          else if (type(*arg) == 'd') t[i]= atof(*arg) * 255;
           else if (EQ(*arg, "-")) t[i]= NAN;
           else error("fill: wrong parameter");
         }
@@ -370,11 +369,6 @@ int main(int argc, char **args) {
       else
       if (ARG_HEAD("lapl")) {
         laplacian(im(1), -0.25);
-      }
-      else
-      if (ARG_EQ("norm")) { // FLOAT
-        if (! *(++arg)) error("norm: missing parameter");
-        normalize_image(im(1), atof(*arg));
       }
       else
       if (ARG_EQ("odd")) {

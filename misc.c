@@ -94,7 +94,7 @@ vector *histogram_of_image(image *im, int chan) {
   int x, y, h= im->height, w= im->width;
   for (y= 0; y < h; y++) {
     for (x= 0; x < w; x++) {
-      v= (*p * 255 + 0.5);
+      v= *p;
       if (v < 0) d[0] += 1;
       else
       if (v > 1) d[255] += 1;
@@ -117,13 +117,13 @@ void contrast_image(image *im, real black, real white) {
       if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p <= black) *p= 0;
-        else *p= 1;
+        else *p= 255;
       }
     }
     return;
   }
   //mw+q=M mb+q=-M m(w-b)=2M
-  m= 1.0 / (white - black) ;
+  m= 255.0 / (white - black) ;
   q= -m * black;
 
   if (black < white) {
@@ -132,7 +132,7 @@ void contrast_image(image *im, real black, real white) {
       if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p <= black) *p= 0;
-        else if (*p >= white) *p= 1;
+        else if (*p >= white) *p= 255;
         else *p= *p * m + q;
       }
     }
@@ -145,65 +145,12 @@ void contrast_image(image *im, real black, real white) {
       if (!p) continue;
       for (i=0; i<l; i++,p++) {
         if (*p >= black) *p= 0;
-        else if (*p <= white) *p= 1;
+        else if (*p <= white) *p= 255;
         else *p= *p * m + q;
       }
     }
     return;
   }
-}
-
-void normalize_image(image *im, real strength) {
-  vector *d, *v= histogram_of_image(im, 1);
-  real *p= v->data;
-  int i, b, w;
-
-  for (i= 0; i < v->len; i++, p++) {
-    *p= log(1 + *p);
-  }
-  d= copy_vector(v);
-  cumul_vector(d);
-  diff_vector(d, 10);
-  diff_vector(d, 14);
-  p= d->data;
-  for (i= 12; i < d->len; i++) {
-    if (p[i] > 0) break;
-  }
-  for (; i < d->len; i++) {
-    if (p[i] < 0) break;
-  }
-  b= i - 13;
-  for (i= d->len - 1; i >= 0; i--) {
-    if (p[i] < 0) break;
-  }
-  for (; i >= 0; i--) {
-    if (p[i] > 0) break;
-  }
-  w= i - 11;
-  destroy_vector(d);
-  d= copy_vector(v);
-  p= d->data;
-  for (i= 0; i < d->len; i++) {
-    p[i] *= i;
-  }
-  cumul_vector(d);
-  cumul_vector(v);
-  i= (p[255] - p[w])
-    / (v->data[255] - v->data[w]);
-  i= 1.46 * (w - i) * strength;
-  // 1.46 =~ sqrt(2/15) * 4
-  //= sqrt(int(0, 1, (1-x^2)*x^2))
-  //   / int(0, 1, (1-x^2)*x)
-  w= w + i;
-  i= (p[0] - p[b])
-    / (v->data[0] - v->data[b]);
-  i= 1.46 * (i - b) * strength;
-  b= b - i;
-  //fprintf(stderr, "b: %d w: %d\n", b, w);
-
-  contrast_image(im, b/255.0, w/255.0);
-  destroy_vector(v);
-  destroy_vector(d);
 }
 
 void mean_y(image *im, uint d) {
@@ -273,16 +220,16 @@ void calc_statistics(image *im, int verbose) {
   // histograms
   for (y= 0; y < h; y++) {
     for (x= 0; x < w; x++) {
-      a= *pi * 255 + 0.5;
-      b= *px * 255 + 0.5;
+      a= *pi;
+      b= *px;
       pa[a]++;
       if ((x >= w - 1) || (y >= h - 1)) {continue;} 
       if (a > b) {c= b; b= a; a= c;}
       pb[a]++; pb[b]--;
       d= b - a; d *= d;
       pt[a] += d; pt[b] -= d;
-      a= *pi * 255 + 0.5;
-      b= *py * 255 + 0.5;
+      a= *pi;
+      b= *py;
       if (a > b) {c= b; b= a; a= c;}
       pb[a]++; pb[b]--;
       d= b - a; d *= d;
@@ -335,7 +282,7 @@ void diff_image(image *a, image *b) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
-      *pa= *pa - *pb + 0.5;
+      *pa= *pa - *pb + 128;
       pa++; pb++;
     }
   }
@@ -351,7 +298,7 @@ void patch_image(image *a, image *b) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
-      *pa= *pa + *pb - 0.5;
+      *pa= *pa + *pb - 128;
       pa++; pb++;
     }
   }
@@ -369,7 +316,7 @@ void quantize_image(image *im, float steps) {
     end= p + w*h;
     for (; p < end; p++) {
       v= *p;
-      *p = roundf((v-0.5) * steps) / steps + 0.5;
+      *p = roundf((v-128) * steps) / steps + 128;
     }
   }
 }
@@ -388,7 +335,7 @@ void dither_image(image *im, int steps) {
       p= im->chan[z] + y*w;
       for (x= 0; x < w; x++,p++) {
         v= *p;
-        *p= roundf((*p-0.5) * steps) / steps + 0.5;
+        *p= roundf((*p-128) * steps) / steps + 128;
         v= (v-*p)/16;
         if (x+1 < w) {
           *(p+1) += 7*v;

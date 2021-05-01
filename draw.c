@@ -21,7 +21,7 @@ void draw_grid(image *im, int stepx, int stepy) {
           x % sbigx == 0 ||
           (x % stepx == 0 && (y + step4y) % stepy < step2y) ||
           (y % stepy == 0 && (x + step4x) % stepx < step2x)
-        ) {if (*p < 0.5) *p= 1; else *p= 0;}
+        ) {if (*p < 128) *p= 1; else *p= 0;}
       }
     }
   }
