@@ -27,7 +27,7 @@ void draw_grid(image *im, int stepx, int stepy) {
   }
 }
 
-void poke(image *im, int x, int y, int z, gray v) {
+void poke_image(image *im, int x, int y, int z, gray v) {
   if (x < 0 || x > im->width) error("poke: invalid x");
   if (y < 0 || y > im->height) error("poke: invalid y");
   if (! im->chan[z]) error("poke: invalid chan");

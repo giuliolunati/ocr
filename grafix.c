@@ -201,7 +201,7 @@ int main(int argc, char **args) {
           if (c != 'i') error("image: expected int");
           t[i]= atof(*arg);
         }
-        push(clone_image(im(1),t[0],t[1],t[2]));
+        push(image_clone(im(1),t[0],t[1],t[2]));
       }
       else
       if (ARG_HEAD("con")) { // auto | BLACK WHITE
@@ -220,7 +220,7 @@ int main(int argc, char **args) {
         contrast_image(im(1), x, y);
       }
       else
-      if (ARG_EQ("copy")) push(copy_image(im(1)));
+      if (ARG_EQ("copy")) push(image_copy(im(1)));
       else
       if (ARG_EQ("cropx")) { // FLOAT FLOAT
         img= im(1);
@@ -232,7 +232,7 @@ int main(int argc, char **args) {
         y= atof(*arg);
         if (y <= 1) y *= img->width;
         if (y <= x || y > img->width) error("cropx: invalid RIGHT parameter");
-        push(crop(img, x, 0, y, img->height));
+        push(image_crop(img, x, 0, y, img->height));
         swap(); pop();
       }
       else
@@ -246,7 +246,7 @@ int main(int argc, char **args) {
         y= atof(*arg);
         if (y <= 1) y *= img->height;
         if (y <= x || y > img->height) error("cropx: invalid BOTTOM parameter");
-        push(crop(img, 0, x, img->width, y));
+        push(image_crop(img, 0, x, img->width, y));
         swap(); pop();
       }
       else
@@ -265,9 +265,9 @@ int main(int argc, char **args) {
       }
       else
       if (ARG_EQ("deskew")) {
-        x= detect_skew(im(1));
+        x= detect_skew_image(im(1));
         fprintf(stderr, "skew: %g\n", x);
-        skew(im(1), x);
+        skew_image(im(1), x);
       }
       else
       if (ARG_EQ("diff")) {
@@ -278,7 +278,7 @@ int main(int argc, char **args) {
       if (ARG_EQ("dither")) { // INT
         if (! *(++arg)) error("double: missing N parameter");
         i= atoi(*arg);
-        image_dither(im(1), i);
+        dither_image(im(1), i);
       }
       else
       if (ARG_HEAD("div")) {
@@ -322,7 +322,7 @@ int main(int argc, char **args) {
           else if (EQ(*arg, "-")) t[i]= NAN;
           else error("fill: wrong parameter");
         }
-        image_sel_fill(im(1),t[0],t[1],t[2],t[3]);
+        fill_selection(im(1),t[0],t[1],t[2],t[3]);
       }
       else
       if (ARG_EQ("fix-bg")) {
@@ -369,7 +369,7 @@ int main(int argc, char **args) {
       }
       else
       if (ARG_HEAD("lapl")) {
-        image_laplace(im(1), -0.25);
+        laplacian(im(1), -0.25);
       }
       else
       if (ARG_EQ("norm")) { // FLOAT
@@ -400,7 +400,7 @@ int main(int argc, char **args) {
       if (ARG_HEAD("pois")) {
         if (! *(++arg)) error("poisson: missing PRECISION");
         x= atof(*arg);
-        image_poisson(im(1), im(2), -0.25, 0, x);
+        solve_poisson(im(1), im(2), -0.25, 0, x);
         pop();
       }
       else
@@ -429,7 +429,7 @@ int main(int argc, char **args) {
           }
           else error("rectangle: wrong parameter");
         }
-        image_sel_rect(im(1),t[0],t[1],t[2],t[3],t[4]);
+        select_rectangle(im(1),t[0],t[1],t[2],t[3],t[4]);
       }
       else
       if (ARG_HEAD("rot")) { // +-90, 180, 270
@@ -440,7 +440,7 @@ int main(int argc, char **args) {
       else
       if (ARG_EQ("skew")) { // FLOAT
         if (! *(++arg)) error("skew: missing parameter");
-        skew(im(1), atof(*arg));
+        skew_image(im(1), atof(*arg));
       }
       else
       if (ARG_EQ("splitx")) { // FLOAT
@@ -484,10 +484,10 @@ int main(int argc, char **args) {
             error1("file name too long:", *arg);
           }
           if (EQ(*arg, "-")) {
-            image_write(img, NULL);
+            write_image(img, NULL);
           } else {
             sprintf(name, *arg, img->pag);
-            image_write(img, name);
+            write_image(img, name);
           }
         }
         else

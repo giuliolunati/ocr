@@ -23,7 +23,7 @@ image *image_background(image *im) {
   d= 0.333 / d;
   d= exp(-d);
   int x, y, z, h= im->height, w= im->width;
-  image *om= clone_image(im, 0, 0, 0);
+  image *om= image_clone(im, 0, 0, 0);
   om->ex= im->ex;
   real t, *v0, *v1;
   v0= malloc(w * sizeof(*v0));
@@ -357,7 +357,7 @@ void patch_image(image *a, image *b) {
   }
 }
 
-void image_quantize(image *im, float steps) {
+void quantize_image(image *im, float steps) {
   int h= im->height;
   int w= im->width;
   gray *p, *end= p;
@@ -374,7 +374,7 @@ void image_quantize(image *im, float steps) {
   }
 }
 
-void image_dither(image *im, int steps) {
+void dither_image(image *im, int steps) {
   int h= im->height;
   int w= im->width;
   int z;

@@ -56,22 +56,22 @@ void convolve_3x3(image *im, real a, real b, real c, real d);
 void deconvolve_3x1(image *im, real a, real b, real c, int border);
 void deconvolve_1x3(image *im, real a, real b, real c, int border);
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr);
-void image_laplace(image *im, real k);
-void image_poisson(image *target, image *guess, real k, int steps, float maxerr);
+void laplacian(image *im, real k);
+void solve_poisson(image *target, image *guess, real k, int steps, float maxerr);
 
 // draw.c
 void draw_grid(image *im, int stepx, int stepy);
-void image_sel_fill(image *im, real v0, real v1, real v2, real v3);
-void poke(image *im, int x, int y, int chan, gray v);
+void fill_selection(image *im, real v0, real v1, real v2, real v3);
+void poke_image(image *im, int x, int y, int chan, gray v);
 
 // image.c
 extern real default_ex;
 image *image_make(int depth, int width, int height);
-void image_destroy(image *im);
-image *clone_image(image *im, int depth, int width, int height);
-image *copy_image(image *im);
+void destroy_image(image *im);
+image *image_clone(image *im, int depth, int width, int height);
+image *image_copy(image *im);
 image *image_read(char *fname);
-void image_write(image *im, char *fname);
+void write_image(image *im, char *fname);
 void add_channel(image *im, int n);
 
 // misc.c
@@ -87,8 +87,8 @@ void darker_image(image *a, image *b);
 void calc_statistics(image *im, int verbose);
 void diff_image(image *a, image *b);
 void patch_image(image *a, image *b);
-void image_quantize(image *im, float step);
-void image_dither(image *im, int step);
+void quantize_image(image *im, float step);
+void dither_image(image *im, int step);
 
 // scale.c
 image *image_double(image *im, real k /* hardness */);
@@ -100,19 +100,19 @@ image *image_redouble_y(image *im, int odd);
 image *image_redouble(image *im, int oddx, int oddy);
 
 // select.c
-void image_alpha_to_sel(image *im);
-void image_make_sel(image *im, gray v);
-void image_sel_rect(image *im, real mode, int x0, int y0, int x1, int y1);
-void image_sel_fill(image *im, real v0, real v1, real v2, real v3);
+void alpha_to_sel(image *im);
+void set_selection(image *im, gray v);
+void select_rectangle(image *im, real mode, int x0, int y0, int x1, int y1);
+void fill_selection(image *im, real v0, real v1, real v2, real v3);
 
 // transform.c
-image *rotate_90_image(image *im, int angle);
+image *image_rotate_90(image *im, int angle);
 image *rotate_image(image *im, float angle);
 void splitx_image(void **out1, void **out2, image *im, float x);
 void splity_image(void **out1, void **out2, image *im, float y);
-image *crop(image *im, int x1, int y1, int x2, int y2);
-void skew(image* im, real angle);
-real detect_skew(image *im);
+image *image_crop(image *im, int x1, int y1, int x2, int y2);
+void skew_image(image* im, real angle);
+real detect_skew_image(image *im);
 void shearx_image(image *im, real t);
 void sheary_image(image *im, real t);
 

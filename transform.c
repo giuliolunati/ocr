@@ -1,9 +1,9 @@
 #include "common.h"
 
-image *rotate_90_image(image *im, int angle) {
+image *image_rotate_90(image *im, int angle) {
   int w= im->width, h= im->height;
   int x, y, z, dx, dy;
-  image *om= clone_image(im, 0, h, w);
+  image *om= image_clone(im, 0, h, w);
   om->ex= im->ex;
   om->pag= im->pag;
   gray *i, *o;
@@ -42,7 +42,7 @@ image *rotate_image(image *im, float angle) {
   int n= roundf(r);
   r= angle - (90 * n);
   n= (n % 4) * 90;
-  return rotate_90_image(im, n);
+  return image_rotate_90(im, n);
 }
 
 void splitx_image(void **out1, void **out2, image *im, float x) {
@@ -54,8 +54,8 @@ void splitx_image(void **out1, void **out2, image *im, float x) {
   uint w= im->width;
   uint w1= w * x;
   uint w2= w - w1;
-  image* im1= clone_image(im, 0, w1, h);
-  image* im2= clone_image(im, 0, w2, h);
+  image* im1= image_clone(im, 0, w1, h);
+  image* im2= image_clone(im, 0, w2, h);
   for (z= 0; z < 5; z++) {
     p= im->chan[z];
     if (! p) continue;
@@ -80,8 +80,8 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   ulong l1, l2; 
   uint h1= im->height * y;
   uint h2= im->height - h1;
-  image* im1= clone_image(im, 0, w, h1);
-  image* im2= clone_image(im, 0, w, h2);
+  image* im1= image_clone(im, 0, w, h1);
+  image* im2= image_clone(im, 0, w, h2);
   l1= w * h1;
   l2= w * h2;
   gray *p;
@@ -97,7 +97,7 @@ void splity_image(void **out1, void **out2, image *im, float y) {
   *out2= im2;
 }
 
-image *crop(image *im, int x1, int y1, int x2, int y2) {
+image *image_crop(image *im, int x1, int y1, int x2, int y2) {
   int z;
   int w= im->width;
   int h= im->height;
@@ -109,7 +109,7 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   // 0 <= y1 < y2 <= im->height  
   if (x1 < 0 || x2 <= x1 || x2 > w) error("crop: wrong x parameters\n");
   if (y1 < 0 || y2 <= y1 || y2 > h) error("crop: wrong y parameters\n");
-  image *out= clone_image(im, 0, w1, h1);
+  image *out= image_clone(im, 0, w1, h1);
   out->ex= im->ex;
   out->pag= im->pag;
   for (z= 0; z < 5; z++) {
@@ -123,7 +123,7 @@ image *crop(image *im, int x1, int y1, int x2, int y2) {
   return out;
 }
 
-void skew(image* im, real angle) {
+void skew_image(image* im, real angle) {
   angle *= M_PI /180;
   if (fabs(angle) > 45) error("skew: angle must be between -45 and 45.");
   real b= sin(angle);
@@ -154,12 +154,12 @@ real skew_score(int d, image *test, vector *v) {
   return t;
 }
 
-real detect_skew(image *im) {
+real detect_skew_image(image *im) {
   int i, y, w1, w= im->width;
   int h= im->height;
   real t, s= 0;
   // create test image
-  image *test= clone_image(im, 0, w, h-1);
+  image *test= image_clone(im, 0, w, h-1);
   gray *p1, *p2, *pt, *end;
   for (y= 0; y < h - 1; y++) {
     p1= im->chan[1] + y * w;

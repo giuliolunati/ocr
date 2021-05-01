@@ -1,6 +1,6 @@
 #include "common.h"
 
-void image_alpha_to_sel(image *im) {
+void alpha_to_sel(image *im) {
   assert(im);
   long int len= im->width * im->height;
   if (! im->ALPHA) {
@@ -21,7 +21,7 @@ void image_alpha_to_sel(image *im) {
   }
 }
 
-void image_make_sel(image *im, gray v) {
+void set_selection(image *im, gray v) {
   assert(im);
   int wid= im->width;
   int hei= im->height;
@@ -35,7 +35,7 @@ void image_make_sel(image *im, gray v) {
   for (p= im->SEL, end= p + wid*hei; p < end; p++) *p= v;
 }
 
-void image_sel_rect(image *im, real v,
+void select_rectangle(image *im, real v,
     // v < 0: outside= -v
     // v = -0.0: outside= 0 (intersect)
     // v = 0.0: inside= 0 (subtract)
@@ -43,7 +43,7 @@ void image_sel_rect(image *im, real v,
     // negative => from bottom/right
   ) {
   assert(im);
-  if (! im->SEL) image_make_sel(im,0);
+  if (! im->SEL) set_selection(im,0);
   int wid= im->width;
   int hei= im->height;
   if (x0 < 0) x0 += wid;
@@ -96,7 +96,7 @@ void image_sel_rect(image *im, real v,
   }
 }
 
-void image_sel_fill(image *im, real v0, real v1, real v2, real v3) {
+void fill_selection(image *im, real v0, real v1, real v2, real v3) {
   real v[4];
   v[0]= v0; v[1]= v1; v[2]= v2; v[3]= v3;
   int z;

@@ -46,7 +46,7 @@ image *image_make(int depth, int width, int height) {
   return im;
 }
 
-void image_destroy(image *im) {
+void destroy_image(image *im) {
   if (! im) return;
   int i;
   for (i= 0; i < 4; i ++) {
@@ -56,7 +56,7 @@ void image_destroy(image *im) {
   free(im);
 }
 
-image *clone_image(image *im, int depth, int width, int height) {
+image *image_clone(image *im, int depth, int width, int height) {
   if (depth < 1) depth= image_depth(im);
   if (width < 1) width= im->width;
   if (height < 1) height= im->height;
@@ -77,10 +77,10 @@ image *clone_image(image *im, int depth, int width, int height) {
   return om;
 }
 
-image *copy_image(image *im) {
+image *image_copy(image *im) {
   int z;
   gray *pi;
-  image *om= clone_image(im, 0, 0, 0);
+  image *om= image_clone(im, 0, 0, 0);
   uint len= im->width * im->height * sizeof(gray);
   for (z=0; z<5; z++) {
     pi= im->chan[z];
@@ -307,7 +307,7 @@ image *image_read(char *fname) {
   return img;
 }
 
-void image_write(image *im, char *fname) {
+void write_image(image *im, char *fname) {
   FILE *f;
   if (! fname)
   { image_write_pnm(im, stdout); return; }

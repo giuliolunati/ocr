@@ -189,7 +189,7 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
   int n, x, y, z;
   int w= im->width, h= im->height;
 
-  om= clone_image(im, 0, 0, 0);
+  om= image_clone(im, 0, 0, 0);
   gray *pi, *po;
   real err, mean;
   // border
@@ -224,7 +224,7 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
         a, b, c, d,
         7, 0
     );
-    im2= copy_image(om);
+    im2= image_copy(om);
     convolve_3x3(im2, a,b,c,d);
     for (z= 1; z < 4; z++) {
       if (! im->chan[z]) continue;
@@ -261,10 +261,10 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
       }
       for (x= 0; x < w; x++,pi++,po++) *po= *pi;
     }
-    image_destroy(him);
-    image_destroy(hom);
-    image_destroy(im2);
-    image_destroy(om2);
+    destroy_image(him);
+    destroy_image(hom);
+    destroy_image(im2);
+    destroy_image(om2);
     fprintf(stderr, " ");
   }
   err= deconvolve_3x3_step(
@@ -275,7 +275,7 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
   return om;
 }
 
-void image_laplace(image *im, real k) {
+void laplacian(image *im, real k) {
   // d c d
   // b a b  symmetric 3x3 kernel
   // d c d
@@ -458,7 +458,7 @@ float image_poisson_step(
   return err;
 }
 
-void image_poisson(image *target, image *guess, real k, int steps, float maxerr) {
+void solve_poisson(image *target, image *guess, real k, int steps, float maxerr) {
   image *ta1, *gu1, *ta2, *gu2;
   int z, n, x, y;
   assert(guess);
@@ -478,8 +478,8 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
         k,
         8, 0
     );
-    ta1= copy_image(guess);
-    image_laplace(ta1, k);
+    ta1= image_copy(guess);
+    laplacian(ta1, k);
     for (z= 1; z < 4; z++) {
       if (! target->chan[z]) continue;
       pt= target->chan[z];
@@ -501,9 +501,9 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
     gu2= image_half(guess);
     pt= gu2->SEL;
     gu2->SEL= NULL;
-    image_sel_fill(gu2, NAN, 0.5, 0.5, 0.5);
+    fill_selection(gu2, NAN, 0.5, 0.5, 0.5);
     gu2->SEL= pt;
-    image_poisson(
+    solve_poisson(
         ta2,
         gu2,
         k/4,
@@ -526,13 +526,13 @@ void image_poisson(image *target, image *guess, real k, int steps, float maxerr)
         }
       }
     }
-    image_destroy(ta2);
-    image_destroy(gu2);
-    image_destroy(ta1);
-    image_destroy(gu1);
+    destroy_image(ta2);
+    destroy_image(gu2);
+    destroy_image(ta1);
+    destroy_image(gu1);
     fprintf(stderr, " ");
   }
-  // if (w > 256) image_write(guess, "tmp.png");
+  // if (w > 256) write_image(guess, "tmp.png");
   err= image_poisson_step(
       target, guess,
       k,
