@@ -176,7 +176,11 @@ int main(int argc, char **args) {
       if (ARG_EQ("alpha")) add_channel(im(1), 0);
       else
       if (ARG_EQ("bg")) { // FLOAT
-        push(image_background(im(1)));
+        arg++;
+        c= type(*arg); 
+        if (! c) error("bg: missing parameter");
+        if (c != 'i' && c != 'f') error("image: expected number");
+        push(image_background(im(1), atof(*arg)));
       }
       else
       if (ARG_EQ("bin")) { // auto | FLOAT
@@ -324,8 +328,12 @@ int main(int argc, char **args) {
         fill_selection(im(1),t[0],t[1],t[2],t[3]);
       }
       else
-      if (ARG_EQ("fix-bg")) {
-        push(image_background(im(1)));
+      if (ARG_EQ("fix-bg")) { // NUMBER
+        arg++;
+        c= type(*arg); 
+        if (! c) error("image: missing parameter");
+        if (c != 'i' && c != 'f') error("fix-bg: expected number");
+        push(image_background(im(1), atof(*arg)));
         divide_image(im(2), im(1));
         pop();
       }

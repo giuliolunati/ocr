@@ -16,10 +16,7 @@ void error1(const char *msg, const char *param) {
   exit(1);
 }
 
-image *image_background(image *im) {
-  // find light background
-  real d= im->ex;
-  if (d <= 0) d= default_ex;
+image *image_background(image *im, float d) {
   d= 0.333 / d;
   d= exp(-d);
   int x, y, z, h= im->height, w= im->width;
@@ -80,7 +77,7 @@ void divide_image(image *a, image *b) {
     pa= a->chan[z]; pb= b->chan[z];
     if (!pa || !pb) continue;
     for (i= 0; i < w * h; i++) {
-      *pa= (real)*pa / *pb;
+      *pa= (real)*pa / *pb * 255;
       pa++; pb++;
     }
   }

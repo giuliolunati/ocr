@@ -77,7 +77,7 @@ void add_channel(image *im, int n);
 // misc.c
 void error(const char *msg);
 void error1(const char *msg, const char *param);
-image *image_background(image *im);
+image *image_background(image *im, float d);
 void divide_image(image *a, image *b);
 vector *histogram_of_image(image *im, int chan);
 void contrast_image(image *im, real black, real white);
