@@ -46,7 +46,7 @@ LIGHT, COLOR:\n\
   = fix-bg -------------------- fix background\n\
   - div* -------------------- divide im2 / im1\n\
   = bin {auto | THRESHOLD} ---- to black&white\n\
-  = dither N --------- dithering with N levels\n\
+  = dither STEP ----------------- dithering\n\
   = con* BLACK WHITE -------- enhance contrast\n\
   = darker FILENAMES... -- darker of all pixel\n\
 SELECT, DRAW:\n\
@@ -279,9 +279,12 @@ int main(int argc, char **args) {
       }
       else
       if (ARG_EQ("dither")) { // INT
-        if (! *(++arg)) error("double: missing N parameter");
-        i= atoi(*arg);
-        dither_image(im(1), i);
+        arg++;
+        c= type(*arg);
+        if (! c) error("dither: missing STEP parameter");
+        if (c == 'i' || c == 'f') x= atof(*arg);
+        else error("dither: wrong parameter");
+        dither_floyd_bidir(im(1), x);
       }
       else
       if (ARG_HEAD("div")) {
