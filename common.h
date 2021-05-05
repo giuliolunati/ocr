@@ -59,6 +59,12 @@ image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, floa
 void laplacian(image *im, real k);
 void solve_poisson(image *target, image *guess, real k, int steps, float maxerr);
 
+// dithering.c
+void quantize_image(image *im, float step);
+void dither_floyd_bidir(image *im, float step);
+void dither_blue_noise(image *im, float step);
+void dither_cumulative(image *im, float step);
+
 // draw.c
 void draw_grid(image *im, int stepx, int stepy);
 void fill_selection(image *im, real v0, real v1, real v2, real v3);
@@ -73,6 +79,7 @@ image *image_copy(image *im);
 image *image_read(char *fname);
 void write_image(image *im, char *fname);
 void add_channel(image *im, int n);
+image *image_from_channel(image *im, int z);
 
 // misc.c
 void error(const char *msg);
@@ -86,8 +93,6 @@ void darker_image(image *a, image *b);
 void calc_statistics(image *im, int verbose);
 void diff_image(image *a, image *b);
 void patch_image(image *a, image *b);
-void quantize_image(image *im, float step);
-void dither_floyd_bidir(image *im, int step);
 
 // scale.c
 image *image_double(image *im, real k /* hardness */);

@@ -56,6 +56,13 @@ void destroy_image(image *im) {
   free(im);
 }
 
+void add_channel(image *im, int z) {
+  if (im->chan[z]) return;
+  gray *p= malloc(sizeof(gray) * im->width * im->height);
+  if (! p) error("ensure_chan: out of memory");
+  im->chan[z]= p;
+}
+
 image *image_clone(image *im, int depth, int width, int height) {
   if (depth < 1) depth= image_depth(im);
   if (width < 1) width= im->width;
@@ -69,11 +76,8 @@ image *image_clone(image *im, int depth, int width, int height) {
   om->width= width;
   om->height= height;
   uint len= width * height * sizeof(gray);
-  for (z= depth%2; z < depth+depth%2; z++) {
-    p= malloc(len);
-    if (! p) error("clone_image: out of memory");
-    om->chan[z]= p;
-  }
+  for (z= 0; z < 5; z++) om->chan[z]= NULL;
+  for (z= depth%2; z < depth+depth%2; z++) add_channel(om, z);
   return om;
 }
 
@@ -336,11 +340,15 @@ void write_image(image *im, char *fname) {
   }
 }
 
-void add_channel(image *im, int n) {
-  if (im->chan[n]) return;
-  gray *p= malloc(sizeof(gray) * im->width * im->height);
-  if (! p) error("ensure_chan: out of memory");
-  im->chan[n]= p;
+image *image_from_channel(image *im, int z) {
+  long int l= sizeof(gray) * im->width * im->height;
+  if (! im->chan[z]) error("image_from_channel: NULL channel");
+  image *om= image_clone(im, 1, 0, 0);
+  assert(image_depth(om) == 1);
+  assert(om->chan[1]);
+  memcpy(om->chan[1], im->chan[z], l);
+  assert(! om->chan[0]);
+  return om;
 }
 
 // vim: set et sw=2:

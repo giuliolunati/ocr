@@ -46,16 +46,17 @@ LIGHT, COLOR:\n\
   = fix-bg -------------------- fix background\n\
   - div* -------------------- divide im2 / im1\n\
   = bin {auto | THRESHOLD} ---- to black&white\n\
-  = dither STEP ----------------- dithering\n\
+  = dither STEP -------------------- dithering\n\
   = con* BLACK WHITE -------- enhance contrast\n\
   = darker FILENAMES... -- darker of all pixel\n\
 SELECT, DRAW:\n\
   = rect* VAL X Y X' Y' ----- select rectangle\n\
   = fill A R G B -------------- fill selection\n\
   = grid STEP ----------- draw grid over image\n\
-COLORSPACE:\n\
+COLORSPACE, CHANNELS:\n\
   = alpha ------------------ add alpha channel\n\
   = opaque -------------- remove alpha channel\n\
+  + chan* N ------------- extract n-th channel\n\
 FILTERS:\n\
   = lapl* ----------------- negative laplacian\n\
   - pois* TOL ------------------ solve poisson\n\
@@ -179,7 +180,7 @@ int main(int argc, char **args) {
         arg++;
         c= type(*arg); 
         if (! c) error("bg: missing parameter");
-        if (c != 'i' && c != 'f') error("image: expected number");
+        if (c != 'i' && c != 'f') error("bg: expected number");
         push(image_background(im(1), atof(*arg)));
       }
       else
@@ -196,12 +197,22 @@ int main(int argc, char **args) {
         contrast_image(im(1), x, x);
       }
       else
-      if (ARG_HEAD("clone")) { // DEPTH WIDTH HEIGHT
+      if (ARG_HEAD("chan")) { // FLOAT
+        arg++;
+        c= type(*arg); 
+        if (! c) error("channel: missing parameter");
+        if (c != 'i') error("channel: expected number");
+        i= atoi(*arg);
+        if (i < 0) error("channel: invalid parameter");
+        push(image_from_channel(im(1), i));
+      }
+      else
+      if (ARG_EQ("clone")) { // DEPTH WIDTH HEIGHT
         for (i= 0; i < 3; i++) {
           arg++;
           c= type(*arg); 
-          if (! c) error("image: missing parameter");
-          if (c != 'i') error("image: expected int");
+          if (! c) error("clone: missing parameter");
+          if (c != 'i') error("clone: expected int");
           t[i]= atof(*arg);
         }
         push(image_clone(im(1),t[0],t[1],t[2]));
@@ -248,7 +259,7 @@ int main(int argc, char **args) {
         if (! *(++arg)) error("cropy: missing BOTTOM parameter");
         y= atof(*arg);
         if (y <= 1) y *= img->height;
-        if (y <= x || y > img->height) error("cropx: invalid BOTTOM parameter");
+        if (y <= x || y > img->height) error("cropy: invalid BOTTOM parameter");
         push(image_crop(img, 0, x, img->width, y));
         swap(); pop();
       }
@@ -334,7 +345,7 @@ int main(int argc, char **args) {
       if (ARG_EQ("fix-bg")) { // NUMBER
         arg++;
         c= type(*arg); 
-        if (! c) error("image: missing parameter");
+        if (! c) error("fix-bg: missing parameter");
         if (c != 'i' && c != 'f') error("fix-bg: expected number");
         push(image_background(im(1), atof(*arg)));
         divide_image(im(2), im(1));
@@ -367,7 +378,7 @@ int main(int argc, char **args) {
         push(v);
       }
       else
-      if (ARG_HEAD("image")) { // DEPTH WIDTH HEIGHT
+      if (ARG_EQ("image")) { // DEPTH WIDTH HEIGHT
         for (i= 0; i < 3; i++) {
           arg++;
           c= type(*arg); 
@@ -486,7 +497,7 @@ int main(int argc, char **args) {
         if (IS_IMAGE(p)) {
           img= p;
           if (strlen(*arg) >= 200) {
-            error1("file name too long:", *arg);
+            error1("w: file name too long:", *arg);
           }
           if (EQ(*arg, "-")) {
             write_image(img, NULL);
