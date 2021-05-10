@@ -462,7 +462,7 @@ void solve_poisson(image *target, image *guess, real k, int steps, float maxerr)
   int w= target->width, h= target->height;
   long int i, l= w*h;
   if (guess->width != w || guess->height != h)
-  { error("image_poisson: size mismatch."); }
+  { error("solve_poisson: size mismatch."); }
   gray *mask, *pt, *pg, *pm;
   mask= target->ALPHA;
   real err, mean;
@@ -495,11 +495,10 @@ void solve_poisson(image *target, image *guess, real k, int steps, float maxerr)
     ta1->ALPHA= target->ALPHA;
     ta2= image_half(ta1);
     ta1->ALPHA= NULL;
-    gu2= image_half(guess);
-    pt= gu2->SEL;
-    gu2->SEL= NULL;
+    gu2= image_clone(
+        guess, 0, (w + 2 - w%2)/2, (h + 2 - h%2)/2
+    );
     fill_selection(gu2, NAN, 128, 128, 128);
-    gu2->SEL= pt;
     solve_poisson(
         ta2,
         gu2,
@@ -511,16 +510,16 @@ void solve_poisson(image *target, image *guess, real k, int steps, float maxerr)
     for (z= 1; z < 4; z++) {
       if (! target->chan[z]) continue;
       // guess += gu1
-      for (y= 0; y < h; y++) {
-        pt= gu1->chan[z] + y*w;
-        pg= guess->chan[z] + y*w;
-        pm= mask + y*w;
-        if (mask) for (x= 0; x < w; x++,pt++,pg++,pm++) {
+      pt= gu1->chan[z];
+      pg= guess->chan[z];
+      *pt= *(pt+w-1)= *(pt+w*(h-1))= *(pt+w*h-1)= 128;
+      if (mask) {
+        pm= mask;
+        for (i= 0; i < l; i++,pt++,pg++,pm++) {
           if (*pm >= 1) *pg += *pt - 128;
         }
-        else for (x= 0; x < w; x++,pt++,pg++) {
-          *pg += *pt - 128;
-        }
+      } else {
+        for (i= 0; i < l; i++,pt++,pg++) *pg += *pt - 128;
       }
     }
     destroy_image(ta2);
@@ -529,7 +528,6 @@ void solve_poisson(image *target, image *guess, real k, int steps, float maxerr)
     destroy_image(gu1);
     fprintf(stderr, " ");
   }
-  // if (w > 256) write_image(guess, "tmp.png");
   err= image_poisson_step(
       target, guess,
       k,

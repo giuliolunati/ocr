@@ -7,7 +7,7 @@ image *image_half_x(image *im) {
   image *om;
   int wo, x, y, z;
   gray *pi, *po;
-  wo= (wi + wi%2) / 2; 
+  wo= (wi + 2 - wi%2) / 2; 
   om= image_clone(im, 0, wo, h);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
@@ -29,19 +29,19 @@ image *image_half_x(image *im) {
       }
       ASSERT(po+1 == om->chan[z] + h*wo);
     } else { // even
+      // i: 0 0 1 2 3 4 5 5
+      // o:  0   1   2   3
       a= 1.0/8; b= 3.0/8;;
       for (y= 0; y < h; y++) {
         pi= im->chan[z] + (y * wi);
         po= om->chan[z] + (y * wo);
-        *po= b * (*pi + *(pi+1))
-          + a * (*pi*2 - *(pi+1) + *(pi+2));
-        po++; pi += 2;
+        *po= *pi;
+        pi++; po++;
         for (x=1; x < wo-1; x++,po++,pi+=2) {
           *po= b * (*pi + *(pi+1))
             + a * (*(pi-1) + *(pi+2));
         }
-        *po= b * (*pi + *(pi+1))
-          + a * (*(pi-1) + *(pi+1)*2 - *pi);
+        *po= *pi;
       }
       ASSERT(po+1 == om->chan[z] + h*wo);
     }
@@ -56,7 +56,7 @@ image *image_half_y(image *im) {
   int ho, x, y, z;
   real a, b, c, s;
   gray *pi, *po;
-  ho= (hi + hi%2) / 2; 
+  ho= (hi + 2 - hi%2) / 2; 
   om= image_clone(im, 0, w, ho);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
@@ -80,14 +80,14 @@ image *image_half_y(image *im) {
       ASSERT(pi == im->chan[z] + hi*w);
       ASSERT(po == om->chan[z] + ho*w);
     } else { // even
+      // i: 0 0 1 2 3 4 5 5
+      // o:  0   1   2   3
       a= 1.0/8; b= 3.0/8;;
       po= om->chan[z];
       pi= im->chan[z];
       for (x=0; x < w; x++, po++, pi++) {
-        *po= b * (*pi + *(pi+w))
-          + a * (*pi*2 - *(pi+w) + *(pi+2*w));
+        *po= *pi;
       }
-      pi += w;
       for (y= 1; y < ho-1; y++) {
         for (x=0; x < w; x++, po++, pi++) {
           *po= b * (*pi + *(pi+w))
@@ -96,10 +96,8 @@ image *image_half_y(image *im) {
         pi += w;
       }
       for (x=0; x < w; x++, po++, pi++) {
-        *po= b * (*pi + *(pi+w))
-          + a * (*(pi-w) + *(pi+w)*2 - *pi);
+        *po= *pi;
       }
-      pi += w;
       ASSERT(pi == im->chan[z] + hi*w);
       ASSERT(po == om->chan[z] + ho*w);
     }
@@ -123,7 +121,7 @@ image *image_redouble_x(image *im, int odd) {
   int wo, x, y, z;
   real a, b, c, d, s;
   gray *pi, *po;
-  wo= wi*2 - odd; 
+  wo= wi*2 - 2 + odd; 
   om= image_clone(im, 0, wo, h);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
@@ -166,25 +164,18 @@ image *image_redouble_x(image *im, int odd) {
       ASSERT(po == om->chan[z] + h*wo);
     } else { // even
       // i:  0   1   2   3
-      // o: 0 1 2 3 4 5 6 7
+      // o: 0 0 1 2 3 4 5 5
       a= 1.0/16; b= 18.0/16; c= -3.0/16;
       for (y= 0; y < h; y++) {
-        *po= (*pi*2-*(pi+1))*a + *pi*b + *(pi+1)*c;
-        po++;
-        *po= (*pi*2-*(pi+1))*c + *pi*b + *(pi+1)*a;
+        *po= *pi;
         po++; pi++;
-        // i=1, o=2
         for (x=1; x < wi-1; x++) {
-          // i=x, o=2x
           *po= *(pi-1)*a + *pi*b + *(pi+1)*c;
           po++;
           *po= *(pi-1)*c + *pi*b + *(pi+1)*a;
           po++; pi++;
         }
-        // i= wi-1, o= 2wi-2 = wo-2
-        *po= *(pi-1)*a + *pi*b + (*pi*2 - *(pi-1))*c;
-        po++;
-        *po= *(pi-1)*c + *pi*b + (*pi*2 - *(pi-1))*a;
+        *po= *pi;
         po++; pi++;
       }
       ASSERT(pi == im->chan[z] + h*wi);
@@ -203,7 +194,7 @@ image *image_redouble_y(image *im, int odd) {
   int ho, x, y, z;
   real a, b, c, d, s;
   gray *pi, *po;
-  ho= hi*2 - odd;
+  ho= hi*2 - 2 + odd;
   om= image_clone(im, 0, w, ho);
   for (z= 0; z < 5; z++) {
     if (! im->chan[z]) continue;
@@ -247,18 +238,12 @@ image *image_redouble_y(image *im, int odd) {
       ASSERT(po == om->chan[z] + (ho)*w);
     } else { // even
       // i:  0   1   2   3
-      // o: 0 1 2 3 4 5 6 7
+      // o: 0 0 1 2 3 4 5 5
       a= 1.0/16; b= 18.0/16; c= -3.0/16;
       for (x=0; x<w; x++,po++,pi++) {
-        *po= (*pi*2 - *(pi+w))*a + *pi*b + *(pi+w)*c;
+        *po= *pi;
       }
-      pi -= w;
-      for (x=0; x<w; x++,po++,pi++) {
-        *po= (*pi*2 - *(pi+w))*c + *pi*b + *(pi+w)*a;
-      }
-      // i=1, o=2
       for (y=1; y<hi-1; y++) {
-        // i=y, o=2y
         for (x=0; x<w; x++,po++,pi++) {
           *po= *(pi-w)*a + *pi*b + *(pi+w)*c;
         }
@@ -267,13 +252,8 @@ image *image_redouble_y(image *im, int odd) {
           *po= *(pi-w)*c + *pi*b + *(pi+w)*a;
         }
       }
-      // i= hi-1, o= 2hi-2 = ho-2
       for (x=0; x<w; x++,po++,pi++) {
-        *po= *(pi-w)*a + *pi*b + (*pi*2 - *(pi-w))*c;
-      }
-      pi -= w;
-      for (x=0; x<w; x++,po++,pi++) {
-        *po= *(pi-w)*c + *pi*b + (*pi*2 - *(pi-w))*a;
+        *po= *pi;
       }
       ASSERT(pi == im->chan[z] + (hi)*w);
       ASSERT(po == om->chan[z] + (ho)*w);
