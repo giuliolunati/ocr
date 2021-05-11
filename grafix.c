@@ -416,7 +416,7 @@ int main(int argc, char **args) {
       if (ARG_HEAD("pois")) {
         if (! *(++arg)) error("poisson: missing PRECISION");
         x= atof(*arg);
-        solve_poisson(im(1), im(2), -0.25, 0, x);
+        solve_poisson(im(2), im(1), -0.25, 0, x);
         pop();
       }
       else

@@ -57,7 +57,7 @@ void deconvolve_3x1(image *im, real a, real b, real c, int border);
 void deconvolve_1x3(image *im, real a, real b, real c, int border);
 image *deconvolve_3x3(image *im, real a, real b, real c, real d, int steps, float maxerr);
 void laplacian(image *im, real k);
-void solve_poisson(image *target, image *guess, real k, int steps, float maxerr);
+void solve_poisson(image *guess, image *target, real k, int steps, float maxerr);
 
 // dithering.c
 void quantize_image(image *im, float step);
