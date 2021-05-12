@@ -3,51 +3,58 @@
 void laplacian(image *im, real k) {
   int w= im->width, h= im->height;
   int x, y, z;
-  int len= w * sizeof(gray);
-  gray *buf= (gray *) malloc(3 * len);
+  int len= (w+2) * sizeof(gray);
+  gray *mask, *buf= (gray *) malloc(3 * len);
+  gray sh, sv;
   if (! buf) error("image_laplace: out of memory.");
   for (z= 1; z < 4; z++) {
     if (! im->chan[z]) continue;
     gray *i0, *i1, *i2, *o;
+    // init buf
+    i0= buf; i1= i0 + w+2; i2= i1 + w+2;
+    for (x= 0; x < w + 2; x++) i0[x]= NAN;
+    *i1= NAN; i1[w+1]= NAN;
+    mask= im->ALPHA;
     o= im->chan[z];
-    memcpy(buf, o, 2 * len);
-    // y=0
-    *o= 128;
-    o++;
-    i1= buf+1;
-    for (x=1; x < w-1; x++,i1++,o++) {
-      *o= 128 + (real) k * (
-        *(i1-1) - *i1*2 + *(i1+1)
-      );
-    }
-    *o= 128;
-    //
-    for (y=1; y < h-1; y++) {
-      i0= buf; i1= i0 + w; i2 = i1 + w;
-      o= im->chan[z] + w*y;
-      memcpy(i2, o + w, len);
-      *o= 128 + (real) k * (*i0 - *i1*2 + *i2);
-      i0++, i1++, i2++, o++;
-      for (x=1; x < w-1; x++,i0++,i1++,i2++,o++) {
-        *o= 128 + (real) k * (
-          *(i1-1) + *(i1+1) + *i0 + *i2 - *i1 * 4
-        );
+    if (! mask) {
+      for (x= 0; x < w; x++) i1[x+1]= o[x];
+    } else {
+      for (x= 0; x < w; x++) {
+        if (mask[x] < 255) i1[x+1]= NAN;
+        else i1[x+1]= o[x];
       }
-      *o= 128 + (real) k * (*i0 - *i1*2 + *i2);
-      o++;
-      memmove(buf, buf + w, 2 * len);
     }
-    // y=h-1
-    o= im->chan[z]+w*(h-1);
-    *o= 128;
-    o++;
-    i1= buf+2*w+1;
-    for (x=1; x < w-1; x++,i1++,o++) {
-      *o= 128 + (real) k * (
-        *(i1-1) - *i1*2 + *(i1+1)
-      );
+    for (y=0; y < h; y++) {
+      i0++, i1++, i2++;
+      if (mask) mask= im->ALPHA + w*y;
+      o= im->chan[z] + w*y;
+      if (y < h-1) {
+        if (! mask) {
+          for (x= 0; x < w; x++) i2[x]= o[w+x];
+        } else {
+          for (x= 0; x < w; x++) {
+            if (mask[w+x] < 255) i2[x]= NAN;
+            else i2[x]= o[w+x];
+          }
+        }
+      } else {
+        for (x= 0; x < w; x++) i2[x]= NAN;
+      }
+      *(i2-1)= NAN; i2[w]= NAN;
+      for (x=0; x < w; x++,i0++,i1++,i2++,o++) {
+        sh= *(i1-1) + *(i1+1);
+        sv= *i0 + *i2;
+        *o = 128;
+        if (isnan(sh)) {
+          if (!isnan(sv)) *o+= k * (sv-*i1*2);
+        } else {
+          if (isnan(sv)) *o+= k * (sh-*i1*2);
+          else *o+= k * (sh+sv-*i1*4);
+        }
+      }
+      i0= buf; i1= i0 + w+2; i2 = i1 + w+2;
+      memmove(buf, i1, 2 * len);
     }
-    *o= 128;
   }
   free(buf);
 }
