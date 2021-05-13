@@ -53,6 +53,7 @@ SELECT, DRAW:\n\
   = rect* VAL X Y X' Y' ----- select rectangle\n\
   = fill A R G B -------------- fill selection\n\
   = grid STEP ----------- draw grid over image\n\
+  - s-paste ------------------- seamless paste\n\
 COLORSPACE, CHANNELS:\n\
   = alpha ------------------ add alpha channel\n\
   = opaque -------------- remove alpha channel\n\
@@ -452,6 +453,12 @@ int main(int argc, char **args) {
         if (! *(++arg)) error("rot: missing parameter");
         push(rotate_image(im(1), atof(*arg)));
         swap(); pop();
+      }
+      else
+      if (ARG_EQ("s-paste")) {
+        laplacian(im(1), -0.25);
+        solve_poisson(im(2), im(1), -0.25, 0, 0.01);
+        pop();
       }
       else
       if (ARG_EQ("skew")) { // FLOAT
